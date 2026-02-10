@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Bodega Digital</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Production Version 4.0 -->
+    <link rel="stylesheet" href="css/style.css?v=4.0">
+</head>
+
+<body class="bg-gray-100">
+
+    <!-- 
+    *****************************************
+    * PANTALLA DE LOGIN (ADMIN)
+    *****************************************
+    -->
+    <div id="login-container" class="flex items-center justify-center h-screen">
+        <div class="p-8 bg-white shadow-lg rounded-lg w-full max-w-sm">
+            <h1 class="text-2xl font-bold text-center text-blue-600 mb-2">Mi Bodega Digital</h1>
+            <p id="auth-mode-title" class="text-center text-gray-600 mb-4">Acceso de Administrador</p>
+
+            <!-- Toggle entre Login y Registro -->
+            <div class="flex justify-center mb-4">
+                <button id="toggle-to-register" class="text-sm text-blue-600 hover:underline">
+                    ¿No tienes cuenta? <span class="font-semibold">Crear cuenta</span>
+                </button>
+                <button id="toggle-to-login" class="text-sm text-blue-600 hover:underline hidden">
+                    ¿Ya tienes cuenta? <span class="font-semibold">Iniciar sesión</span>
+                </button>
+            </div>
+
+            <!-- Formulario de Login -->
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email-input" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                    <input type="email" id="email-input"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label for="password-input" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                    <input type="password" id="password-input"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+
+                <!-- Mensaje de Error (más grande y visible) -->
+                <div id="login-error-msg"
+                    class="text-red-600 text-sm text-center mb-4 min-h-[40px] p-2 bg-red-50 rounded-md border border-red-200 hidden">
+                </div>
+
+                <!-- Botón de Email/Password -->
+                <button type="submit" id="email-login-btn"
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700 transition">
+                    Ingresar con Email
+                </button>
+            </form>
+
+            <!-- Formulario de Registro (oculto por defecto) -->
+            <form id="register-form" class="hidden">
+                <div class="mb-4">
+                    <label for="register-email-input" class="block text-sm font-medium text-gray-700">Correo
+                        Electrónico</label>
+                    <input type="email" id="register-email-input"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label for="register-password-input"
+                        class="block text-sm font-medium text-gray-700">Contraseña</label>
+                    <input type="password" id="register-password-input"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" minlength="6"
+                        required>
+                    <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+                </div>
+                <div class="mb-4">
+                    <label for="register-password-confirm-input"
+                        class="block text-sm font-medium text-gray-700">Confirmar Contraseña</label>
+                    <input type="password" id="register-password-confirm-input"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" minlength="6"
+                        required>
+                </div>
+
+                <!-- Mensaje de Error para Registro -->
+                <div id="register-error-msg"
+                    class="text-red-600 text-sm text-center mb-4 min-h-[40px] p-2 bg-red-50 rounded-md border border-red-200 hidden">
+                </div>
+
+                <!-- Botón de Registro -->
+                <button type="submit" id="register-btn"
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-700 transition">
+                    Crear Cuenta
+                </button>
+            </form>
+
+            <!-- Separador -->
+            <div class="flex items-center my-4">
+                <div class="flex-1 border-t border-gray-300"></div>
+                <span class="px-3 text-gray-500 text-sm">o</span>
+                <div class="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            <!-- Botón de Google -->
+            <button id="google-login-btn"
+                class="w-full bg-white text-gray-700 py-2 px-4 rounded-md font-semibold border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                    <path fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Ingresar con Google
+            </button>
+
+
+
+            <!-- Crédito de Creador -->
+            <p class="text-xs text-gray-400 mt-8 text-center tracking-wide">
+                Una solución de <span class="font-semibold text-gray-600">ARNOLD CODE</span>
+            </p>
+        </div>
+    </div>
+
+
+    <!-- 
+    *****************************************
+    * APP (Contenedor Principal)
+    *****************************************
+    -->
+    <div id="app-container"
+        class="container mx-auto max-w-6xl h-[95vh] my-4 bg-white shadow-lg overflow-hidden rounded-lg flex-col hidden">
+
+        <!-- Cabecera (Botón Salir AÑADIDO OTRA VEZ) -->
+        <header class="bg-white p-4 shadow-md z-10 flex-shrink-0">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-center text-blue-600">Mi Bodega Digital</h1>
+                <button id="logout-btn"
+                    class="text-sm bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-600 transition duration-300">Salir</button>
+            </div>
+            <p id="user-id-display" class="text-center text-xs text-gray-400 mt-1">Cargando...</p>
+        </header>
+
+        <!-- Contenido (scrollable) -->
+        <main id="main-content" class="flex-grow overflow-y-auto p-4 no-scrollbar">
+
+            <div id="loading-screen" class="text-center p-10">
+                <p class="text-gray-500">Cargando datos...</p>
+            </div>
+
+            <!-- Contenido de las Pestañas -->
+            <div id="app-content" class="hidden">
+
+                <!-- Pestaña Vender (POS) -->
+                <div id="tab-vender" class="tab-content">
+                    <h2 class="text-xl font-semibold mb-3">Vender</h2>
+                    <div class="mb-4">
+                        <input type="search" id="search-bar" placeholder="Buscar productos por nombre..."
+                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="panel-venta-rapida"
+                            class="bg-gray-50 p-3 rounded-lg h-[60vh] overflow-y-auto no-scrollbar">
+                            <h3 class="font-semibold mb-2 text-gray-700">Productos</h3>
+                            <div id="lista-venta-rapida" class="space-y-2"></div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-inner">
+                            <h3 class="text-lg font-semibold mb-4">Carrito</h3>
+                            <div id="cart-items" class="space-y-2 mb-4"></div>
+                            <div class="border-t pt-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <span class="text-lg font-semibold">Total:</span>
+                                    <span id="cart-total" class="text-2xl font-bold text-blue-600">S/ 0.00</span>
+                                </div>
+                                <form id="venta-form">
+                                    <div class="mb-3">
+                                        <label class="block text-sm font-medium text-gray-700">Método de Pago</label>
+                                        <select id="venta-metodo-pago"
+                                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                            <option value="Efectivo">Efectivo</option>
+                                            <option value="Yape/Plin">Yape/Plin</option>
+                                            <option value="Fiado">Fiado</option>
+                                        </select>
+                                    </div>
+                                    <div id="venta-cliente-fiado-container" class="mb-3 hidden">
+                                        <label class="block text-sm font-medium text-gray-700">Cliente (para
+                                            Fiado)</label>
+                                        <select id="venta-cliente-fiado"
+                                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                                    </div>
+                                    <button type="submit"
+                                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700 transition">
+                                        Registrar Venta
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña Inventario -->
+                <div id="tab-inventario" class="tab-content hidden">
+                    <h2 class="text-xl font-semibold mb-3">Inventario</h2>
+                    <button id="show-producto-form-btn"
+                        class="w-full bg-green-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-600 transition mb-4">
+                        + Añadir Nuevo Producto
+                    </button>
+                    <div id="lista-productos" class="space-y-3"></div>
+                </div>
+
+                <!-- Pestaña Fiado -->
+                <div id="tab-fiado" class="tab-content hidden">
+                    <h2 class="text-xl font-semibold mb-3">Cuentas (Fiado)</h2>
+                    <button id="show-cliente-form-btn"
+                        class="w-full bg-green-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-600 transition mb-4">
+                        + Añadir Nuevo Cliente
+                    </button>
+                    <div id="lista-clientes-fiado" class="space-y-3"></div>
+                </div>
+
+                <!-- Pestaña Reportes -->
+                <div id="tab-reportes" class="tab-content hidden">
+                    <h2 class="text-xl font-semibold mb-3">Reportes Avanzados</h2>
+                    <div class="flex flex-col md:flex-row items-center justify-center gap-2 mb-4 max-w-xl mx-auto">
+                        <div class="flex-1 w-full">
+                            <label for="reporte-fecha-inicio"
+                                class="block text-sm font-medium text-gray-700">Desde</label>
+                            <input type="date" id="reporte-fecha-inicio" class="w-full p-2 border rounded-md shadow-sm">
+                        </div>
+                        <div class="flex-1 w-full">
+                            <label for="reporte-fecha-fin" class="block text-sm font-medium text-gray-700">Hasta</label>
+                            <input type="date" id="reporte-fecha-fin" class="w-full p-2 border rounded-md shadow-sm">
+                        </div>
+                        <button id="actualizar-reporte-btn"
+                            class="p-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 self-end h-[42px] mt-1 md:mt-6">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                                stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m-15.357-2a8.001 8.001 0 0015.357 2m0 0H15" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-inner space-y-3 max-w-xl mx-auto mb-4">
+                        <h3 class="font-semibold text-lg text-gray-800">Resumen del Periodo</h3>
+                        <div class="flex justify-between items-center text-2xl">
+                            <span class="font-semibold text-gray-700">Ingresos Totales:</span>
+                            <span id="reporte-total-general" class="font-bold text-blue-600">S/ 0.00</span>
+                        </div>
+                        <hr>
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="text-gray-600">Ingresos en Efectivo:</span>
+                            <span id="reporte-total-efectivo" class="font-semibold">S/ 0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="text-gray-600">Ingresos en Yape/Plin:</span>
+                            <span id="reporte-total-yape" class="font-semibold">S/ 0.00</span>
+                        </div>
+                        <hr>
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="text-gray-600">Ventas al Fiado (Nuevas):</span>
+                            <span id="reporte-total-fiado" class="font-semibold text-red-500">S/ 0.00</span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-inner max-w-3xl mx-auto mb-4">
+                        <h3 class="font-semibold text-lg text-gray-800 mb-2">Ingresos por Día</h3>
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-inner max-w-xl mx-auto">
+                        <h3 class="font-semibold text-lg text-gray-800 mb-2">Top 5 Productos Vendidos</h3>
+                        <div id="top-products-list" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Pie de Página (ARNOLD CODE) -->
+        <footer class="bg-gray-50 p-2 border-t flex-shrink-0">
+            <p class="text-xs text-gray-400 text-center tracking-wide">
+                Una solución de <span class="font-semibold text-gray-600">ARNOLD CODE</span>
+            </p>
+        </footer>
+
+        <!-- Navegación Inferior -->
+        <nav class="bg-white p-2 shadow-inner border-t grid grid-cols-4 gap-1 flex-shrink-0">
+            <button data-tab="tab-vender" class="nav-tab p-2 rounded-lg text-blue-600 bg-blue-50">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span class="text-xs font-medium">Vender</span>
+            </button>
+            <button data-tab="tab-inventario" class="nav-tab p-2 rounded-lg text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span class="text-xs font-medium">Inventario</span>
+            </button>
+            <button data-tab="tab-fiado" class="nav-tab p-2 rounded-lg text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span class="text-xs font-medium">Fiado</span>
+            </button>
+            <button data-tab="tab-reportes" class="nav-tab p-2 rounded-lg text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span class="text-xs font-medium">Reportes</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Modales (Añadir/Editar Producto) -->
+    <div id="producto-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-20 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <h3 id="producto-modal-title" class="text-lg font-medium leading-6 text-gray-900 mb-4">Nuevo Producto</h3>
+            <form id="producto-form">
+                <input type="hidden" id="producto-id">
+                <div class="mb-3">
+                    <label for="producto-nombre" class="block text-sm font-medium text-gray-700">Nombre</label>
+                    <input type="text" id="producto-nombre"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <label for="producto-precio" class="block text-sm font-medium text-gray-700">Precio (S/)</label>
+                        <input type="number" id="producto-precio" step="0.01"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div>
+                        <label for="producto-stock" class="block text-sm font-medium text-gray-700">Stock (Uds.)</label>
+                        <input type="number" id="producto-stock" step="1"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                            placeholder="Opcional">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" id="close-producto-modal-btn"
+                        class="py-2 px-4 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit"
+                        class="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Añadir/Editar Cliente -->
+    <div id="cliente-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-20 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <h3 id="cliente-modal-title" class="text-lg font-medium leading-6 text-gray-900 mb-4">Nuevo Cliente</h3>
+            <form id="cliente-form">
+                <input type="hidden" id="cliente-id">
+                <div class="mb-3">
+                    <label for="cliente-nombre" class="block text-sm font-medium text-gray-700">Nombre</label>
+                    <input type="text" id="cliente-nombre"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="mb-3">
+                    <label for="cliente-telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                    <input type="tel" id="cliente-telefono"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                        placeholder="Opcional">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" id="close-cliente-modal-btn"
+                        class="py-2 px-4 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="submit"
+                        class="py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Cliente (Fiado) -->
+    <div id="cliente-detalle-modal"
+        class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-30 hidden">
+        <div class="relative top-10 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="cliente-detalle-nombre" class="text-xl font-medium text-gray-900">Detalle de Cliente</h3>
+                <div class="flex gap-2">
+                    <button type="button" id="edit-cliente-btn"
+                        class="p-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M13.586 3.586a2 2 0 112.828 2.828l-11.213 11.213-4.243 1.414 1.414-4.243L13.586 3.586z" />
+                        </svg>
+                    </button>
+                    <button type="button" id="close-cliente-detalle-modal-btn"
+                        class="text-gray-400 hover:text-gray-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-3 bg-blue-50 rounded-lg mb-4 text-center">
+                <p class="text-sm text-blue-700">Saldo Deudor Total</p>
+                <p id="cliente-detalle-saldo" class="text-3xl font-bold text-blue-900">S/ 0.00</p>
+            </div>
+
+            <h4 class="text-md font-semibold text-gray-700 mb-2">Historial</h4>
+            <div id="cliente-detalle-historial"
+                class="space-y-2 h-48 overflow-y-auto no-scrollbar border p-2 rounded-md bg-gray-50">
+                <!-- items del historial -->
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <form id="deuda-form">
+                    <h4 class="text-md font-semibold text-gray-700 mb-2">Añadir Deuda</h4>
+                    <input type="hidden" id="deuda-cliente-id">
+                    <div class="mb-2">
+                        <label for="deuda-monto" class="block text-sm font-medium text-gray-700">Monto (S/)</label>
+                        <input type="number" id="deuda-monto" step="0.01"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label for="deuda-descripcion"
+                            class="block text-sm font-medium text-gray-700">Descripción</label>
+                        <input type="text" id="deuda-descripcion"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                            placeholder="Ej: Gaseosa" required>
+                    </div>
+                    <button type="submit" class="w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-600">Añadir
+                        Deuda</button>
+                </form>
+
+                <form id="pago-form">
+                    <h4 class="text-md font-semibold text-gray-700 mb-2">Registrar Pago</h4>
+                    <input type="hidden" id="pago-cliente-id">
+                    <input type="hidden" id="pago-deuda-origen-id">
+                    <div class="mb-2">
+                        <label for="pago-monto" class="block text-sm font-medium text-gray-700">Monto (S/)</label>
+                        <input type="number" id="pago-monto" step="0.01"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label for="pago-descripcion"
+                            class="block text-sm font-medium text-gray-700">Descripción</label>
+                        <input type="text" id="pago-descripcion"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm"
+                            placeholder="Abono..." required>
+                    </div>
+                    <div class="mb-2">
+                        <label for="pago-metodo" class="block text-sm font-medium text-gray-700">Método</label>
+                        <select id="pago-metodo"
+                            class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Yape/Plin">Yape/Plin</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600">Registrar
+                        Pago</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificación Toast -->
+    <div id="toast-notification" class="hidden p-3 rounded-lg shadow-lg text-white font-semibold">
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- (Estilo del Toast) -->
+    <style>
+        #toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: opacity 0.5s, transform 0.5s;
+            z-index: 100;
+        }
+    </style>
+
+    <!-- Production Version 4.0 -->
+    <script type="module" src="js/main.js?v=4.0"></script>
+
+</body>
+
+</html>

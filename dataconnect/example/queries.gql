@@ -1,0 +1,28 @@
+mutation AddNewProduct($barcode: String, $description: String, $imageUrl: String, $name: String!, $price: Float!, $stockQuantity: Int!) @auth(level: USER) {
+  product_insert(data: {barcode: $barcode, description: $description, imageUrl: $imageUrl, name: $name, price: $price, stockQuantity: $stockQuantity})
+}
+
+query GetProductById($id: UUID!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  product(id: $id) {
+    id
+    barcode
+    description
+    imageUrl
+    name
+    price
+    stockQuantity
+  }
+}
+
+mutation UpdateExistingStockQuantity($id: UUID!, $stockQuantity: Int!) @auth(level: USER) {
+  product_update(id: $id, data: {stockQuantity: $stockQuantity})
+}
+
+query ListAllProducts @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  products {
+    id
+    name
+    price
+    stockQuantity
+  }
+}

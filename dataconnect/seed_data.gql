@@ -1,0 +1,94 @@
+mutation CreateDemoData @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") @transaction {
+  customer_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      firstName: "John",
+      lastName: "Doe",
+      email: "john.doe@example.com",
+      address: "123 Main St",
+      phoneNumber: "555-1234"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      firstName: "Jane",
+      lastName: "Smith",
+      email: "jane.smith@example.com",
+      address: "456 Oak Ave",
+      phoneNumber: "555-5678"
+    }
+  ])
+  supplier_insertMany(data: [
+    {
+      id: "660e8400-e29b-41d4-a716-446655440000",
+      name: "Acme Corp",
+      contactPerson: "Bob Johnson",
+      email: "bob.johnson@acme.com",
+      address: "789 Pine Ln",
+      phoneNumber: "555-9012"
+    },
+    {
+      id: "660e8400-e29b-41d4-a716-446655440001",
+      name: "Beta Co",
+      contactPerson: "Alice Brown",
+      email: "alice.brown@beta.com",
+      address: "101 Elm Rd",
+      phoneNumber: "555-3456"
+    }
+  ])
+  user_insertMany(data: [
+    {
+      id: "770e8400-e29b-41d4-a716-446655440000",
+      name: "Admin User"
+    },
+    {
+      id: "770e8400-e29b-41d4-a716-446655440001",
+      name: "Regular User"
+    }
+  ])
+  product_insertMany(data: [
+    {
+      id: "880e8400-e29b-41d4-a716-446655440000",
+      name: "Widget A",
+      description: "A useful widget",
+      price: 19.99,
+      stockQuantity: 100
+    },
+    {
+      id: "880e8400-e29b-41d4-a716-446655440001",
+      name: "Gadget B",
+      description: "An amazing gadget",
+      price: 29.99,
+      stockQuantity: 50
+    }
+  ])
+  sale_insertMany(data: [
+    {
+      id: "990e8400-e29b-41d4-a716-446655440000",
+      customerId: "550e8400-e29b-41d4-a716-446655440000",
+      employeeId: "770e8400-e29b-41d4-a716-446655440000",
+      saleDate: "2024-01-26T12:00:00Z",
+      totalAmount: 19.99
+    },
+    {
+      id: "990e8400-e29b-41d4-a716-446655440001",
+      customerId: "550e8400-e29b-41d4-a716-446655440001",
+      employeeId: "770e8400-e29b-41d4-a716-446655440001",
+      saleDate: "2024-01-27T14:30:00Z",
+      totalAmount: 29.99
+    }
+  ])
+  saleItem_insertMany(data: [
+    {
+      saleId: "990e8400-e29b-41d4-a716-446655440000",
+      productId: "880e8400-e29b-41d4-a716-446655440000",
+      quantity: 1,
+      unitPrice: 19.99
+    },
+    {
+      saleId: "990e8400-e29b-41d4-a716-446655440001",
+      productId: "880e8400-e29b-41d4-a716-446655440001",
+      quantity: 1,
+      unitPrice: 29.99
+    }
+  ])
+}

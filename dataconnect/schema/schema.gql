@@ -1,0 +1,55 @@
+type Product @table {
+  name: String!
+  price: Float!
+  stockQuantity: Int!
+  description: String
+  barcode: String
+  imageUrl: String
+}
+
+type Customer @table {
+  firstName: String!
+  lastName: String!
+  email: String
+  phoneNumber: String
+  address: String
+}
+
+type User @table {
+  # Assuming User is a predefined type in Firebase for authentication,
+  # or represents employees. If not, this type should be defined with relevant fields.
+  # For now, let's assume it's just an identifier for an employee.
+  # Add other fields if necessary (e.g., name, role)
+  name: String
+}
+
+type Sale @table {
+  saleDate: Timestamp!
+  totalAmount: Float!
+  customer: Customer
+  employee: User
+}
+
+type SaleItem @table(key: ["sale", "product"]) {
+  sale: Sale!
+  product: Product!
+  quantity: Int!
+  unitPrice: Float!
+}
+
+type Supplier @table {
+  name: String!
+  contactPerson: String
+  phoneNumber: String
+  email: String
+  address: String
+}
+
+type InventoryReceipt @table(key: ["supplier", "product", "receiptDate"]) {
+  supplier: Supplier!
+  product: Product!
+  receiptDate: Timestamp!
+  quantityReceived: Int!
+  costPerUnit: Float!
+  batchNumber: String
+}

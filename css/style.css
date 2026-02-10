@@ -1,0 +1,23 @@
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Ocultar scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Estilo para el Toast (Notificación) */
+#toast-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: opacity 0.5s, transform 0.5s;
+    z-index: 100;
+}
