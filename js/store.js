@@ -1,5 +1,5 @@
-import { db, appId } from './firebase.js?v=4.0'; // MODIFICADO
-import { collection } from './firebase.js?v=4.0'; // MODIFICADO
+import { db, appId } from './firebase.js?v=5.3'; // MODIFICADO
+import { collection } from './firebase.js?v=5.3'; // MODIFICADO
 
 // --- Estado Global ---
 let userId = null;

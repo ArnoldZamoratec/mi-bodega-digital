@@ -1,0 +1,160 @@
+/* ============================================
+   DARK MODE STYLES - Mi Bodega Digital v5.3
+   ============================================ */
+
+/* Light Mode Variables (Default) */
+:root {
+    --bg-body: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --bg-tertiary: #f3f4f6;
+
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-tertiary: #9ca3af;
+
+    --border-color: #e5e7eb;
+    --border-color-hover: rgba(5, 150, 105, 0.2);
+
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark Mode Variables */
+:root[data-theme="dark"] {
+    --bg-body: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    --bg-primary: #1e293b;
+    --bg-secondary: #334155;
+    --bg-tertiary: #475569;
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+
+    --border-color: #475569;
+    --border-color-hover: rgba(16, 185, 129, 0.3);
+
+    --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Apply theme colors */
+body {
+    background: var(--bg-body) !important;
+    color: var(--text-primary);
+}
+
+/* Cards and containers */
+.card,
+.bg-white {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.bg-gray-50 {
+    background: var(--bg-secondary) !important;
+}
+
+.bg-gray-100 {
+    background: var(--bg-tertiary) !important;
+}
+
+/* Text colors */
+.text-gray-500 {
+    color: var(--text-secondary) !important;
+}
+
+.text-gray-600 {
+    color: var(--text-secondary) !important;
+}
+
+.text-gray-700 {
+    color: var(--text-primary) !important;
+}
+
+.text-gray-800 {
+    color: var(--text-primary) !important;
+}
+
+.text-gray-900 {
+    color: var(--text-primary) !important;
+}
+
+/* Borders */
+.border-gray-200,
+.border-gray-300 {
+    border-color: var(--border-color) !important;
+}
+
+/* Inputs and selects */
+input,
+select,
+textarea {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-tertiary) !important;
+}
+
+/* Hover states */
+.card:hover {
+    border-color: var(--border-color-hover);
+}
+
+/* Shadows in dark mode */
+:root[data-theme="dark"] .shadow-md,
+:root[data-theme="dark"] .shadow-lg,
+:root[data-theme="dark"] .shadow-xl {
+    box-shadow: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -2px var(--shadow-color);
+}
+
+/* SVG icons color */
+:root[data-theme="dark"] svg {
+    color: var(--text-secondary);
+}
+
+/* Specific dark mode adjustments */
+:root[data-theme="dark"] #app-container {
+    background: var(--bg-primary) !important;
+}
+
+:root[data-theme="dark"] header {
+    background: var(--bg-primary) !important;
+}
+
+/* Modal backdrop */
+:root[data-theme="dark"] .fixed.inset-0.bg-black {
+    background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Toast notifications */
+:root[data-theme="dark"] #toast-notification {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color);
+}
+
+/* Loading screen */
+:root[data-theme="dark"] #loading-screen {
+    background: var(--bg-primary) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Login container - keep dark gradient */
+#login-container {
+    background: linear-gradient(135deg, #065f46 0%, #064e3b 100%) !important;
+}
+
+/* Smooth transitions */
+* {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Disable transitions for theme toggle button */
+#theme-toggle,
+#theme-toggle * {
+    transition: none !important;
+}

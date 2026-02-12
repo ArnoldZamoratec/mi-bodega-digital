@@ -1,27 +1,27 @@
-import { 
-    onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, getDoc, where, serverTimestamp 
-} from '../firebase.js?v=4.0'; // MODIFICADO
-import { 
-    getClientesCol, 
-    getDeudasCol, 
-    setDeudasPendientes, 
+import {
+    onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, getDoc, where, serverTimestamp
+} from '../firebase.js?v=5.3'; // MODIFICADO
+import {
+    getClientesCol,
+    getDeudasCol,
+    setDeudasPendientes,
     getEditingClienteId,
     setEditingClienteId
-} from '../store.js?v=4.0'; // MODIFICADO
-import { 
-    showToast, 
-    renderClientesFiado, 
-    renderClientesParaVenta, 
+} from '../store.js?v=5.3'; // MODIFICADO
+import {
+    showToast,
+    renderClientesFiado,
+    renderClientesParaVenta,
     showClienteDetalleModalUI,
     renderHistorialCliente,
     hideClienteModal,
     resetDeudaForm,
     resetPagoForm,
-    showClienteModal 
-} from '../ui.js?v=4.0'; // MODIFICADO
+    showClienteModal
+} from '../ui.js?v=5.3'; // MODIFICADO
 
-let unsubClienteDetalle = null; 
-let currentClienteData = null;  
+let unsubClienteDetalle = null;
+let currentClienteData = null;
 
 export const getCurrentClienteData = () => currentClienteData;
 
@@ -30,27 +30,27 @@ export const getCurrentClienteData = () => currentClienteData;
  */
 export function loadClientesFiado() {
     const q = query(getClientesCol());
-    
+
     onSnapshot(q, (snapshot) => {
         const clientesPromises = [];
         snapshot.forEach(doc => {
             clientesPromises.push(async () => {
                 const cliente = { id: doc.id, ...doc.data() };
-                
+
                 const qDeudas = query(getDeudasCol(), where("clienteId", "==", cliente.id));
-                
+
                 let totalDeuda = 0;
                 onSnapshot(qDeudas, (deudasSnapshot) => {
                     totalDeuda = 0;
                     deudasSnapshot.forEach(deudaDoc => {
                         const deuda = deudaDoc.data();
-                        if (deuda.monto < 0) { 
+                        if (deuda.monto < 0) {
                             totalDeuda += deuda.monto;
-                        } else if (deuda.monto > 0 && deuda.pagado !== true) { 
+                        } else if (deuda.monto > 0 && deuda.pagado !== true) {
                             totalDeuda += deuda.monto;
                         }
                     });
-                    
+
                     const totalEl = document.getElementById(`deuda-total-${cliente.id}`);
                     if (totalEl) {
                         totalEl.textContent = `S/ ${totalDeuda.toFixed(2)}`;
@@ -80,7 +80,7 @@ export function loadClientesFiado() {
  */
 export function loadClientesParaVenta() {
     const q = query(getClientesCol());
-    
+
     onSnapshot(q, (snapshot) => {
         const clientes = [];
         snapshot.forEach(doc => {
@@ -100,7 +100,7 @@ export async function handleClienteFormSubmit(e) {
     e.preventDefault();
     const nombre = document.getElementById('cliente-nombre').value;
     const telefono = document.getElementById('cliente-telefono').value;
-    const currentEditingClienteId = getEditingClienteId(); 
+    const currentEditingClienteId = getEditingClienteId();
 
     const cliente = { nombre, telefono };
 
@@ -108,13 +108,13 @@ export async function handleClienteFormSubmit(e) {
         if (currentEditingClienteId) {
             const docRef = doc(getClientesCol(), currentEditingClienteId);
             await updateDoc(docRef, cliente);
-            showToast("Cliente actualizado");
+            // Toast removed - modal closes, list updates
         } else {
             await addDoc(getClientesCol(), cliente);
-            showToast("Cliente guardado");
+            // Toast removed - modal closes, new client appears
         }
         hideClienteModal();
-        setEditingClienteId(null); 
+        setEditingClienteId(null);
     } catch (error) {
         console.error("Error al guardar cliente: ", error);
         showToast("Error al guardar cliente", true);
@@ -141,7 +141,7 @@ export async function showClienteDetalleModal(clienteId) {
     showClienteDetalleModalUI({ id: clienteId, ...cliente });
 
     const qDeudas = query(getDeudasCol(), where("clienteId", "==", clienteId));
-    
+
     unsubClienteDetalle = onSnapshot(qDeudas, (snapshot) => {
         let saldoTotal = 0;
         let historial = [];
@@ -154,9 +154,9 @@ export async function showClienteDetalleModal(clienteId) {
         historial.sort((a, b) => (a.fecha?.toMillis() || 0) - (b.fecha?.toMillis() || 0));
 
         historial.forEach(item => {
-            if (item.monto < 0) { 
+            if (item.monto < 0) {
                 saldoTotal += item.monto;
-            } else if (item.monto > 0 && item.pagado !== true) { 
+            } else if (item.monto > 0 && item.pagado !== true) {
                 saldoTotal += item.monto;
                 deudasPendientes.push(item);
             }
@@ -176,7 +176,7 @@ async function handleMarkAsPaid(id) {
     try {
         const deudaRef = doc(getDeudasCol(), id);
         await updateDoc(deudaRef, { pagado: true });
-        showToast("Deuda marcada como pagada");
+        // Toast removed - debt status changes visually
     } catch (error) {
         console.error("Error al marcar como pagado:", error);
         showToast("Error al actualizar deuda", true);
@@ -186,7 +186,7 @@ async function handleMarkAsPaid(id) {
 async function handleDeleteHistoryEntry(id) {
     try {
         await deleteDoc(doc(getDeudasCol(), id));
-        showToast("Registro eliminado");
+        // Toast removed - record disappears from list
     } catch (error) {
         console.error("Error al eliminar registro:", error);
         showToast("Error al eliminar", true);
@@ -230,7 +230,7 @@ export async function handleDeudaFormSubmit(e) {
             fecha: serverTimestamp(),
             pagado: false
         });
-        showToast("Deuda añadida");
+        // Toast removed - new debt appears in history
         resetDeudaForm();
     } catch (error) {
         console.error("Error al añadir deuda:", error);
@@ -254,10 +254,10 @@ export async function handlePagoFormSubmit(e) {
     try {
         await addDoc(getDeudasCol(), {
             clienteId,
-            monto: -Math.abs(monto), 
+            monto: -Math.abs(monto),
             descripcion,
             fecha: serverTimestamp(),
-            pagado: false, 
+            pagado: false,
             metodoPago: metodoPago
         });
 
@@ -265,8 +265,8 @@ export async function handlePagoFormSubmit(e) {
             const deudaRef = doc(getDeudasCol(), deudaOrigenId);
             await updateDoc(deudaRef, { pagado: true });
         }
-        
-        showToast("Pago registrado");
+
+        // Toast removed - payment appears in history, debt updates
         resetPagoForm();
 
     } catch (error) {

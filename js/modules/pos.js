@@ -1,16 +1,16 @@
-import { onSnapshot, query, updateDoc, doc, increment, addDoc, serverTimestamp } from '../firebase.js?v=4.0'; // MODIFICADO
-import { 
-    getProductosCol, 
-    getVentasCol, 
-    getDeudasCol, 
-    getCart, 
-    clearCart, 
-    addToCartState, 
-    removeFromCartState 
-} from '../store.js?v=4.0'; // MODIFICADO
-import { showToast, renderVentaRapida, renderCart, resetVentaForm } from '../ui.js?v=4.0'; // MODIFICADO
+import { onSnapshot, query, updateDoc, doc, increment, addDoc, serverTimestamp } from '../firebase.js?v=5.3';
+import {
+    getProductosCol,
+    getVentasCol,
+    getDeudasCol,
+    getCart,
+    clearCart,
+    addToCartState,
+    removeFromCartState
+} from '../store.js?v=5.3';
+import { showToast, renderVentaRapida, renderCart, resetVentaForm } from '../ui.js?v=5.3';
 
-let allProducts = []; 
+let allProducts = [];
 
 function handleAddToCart(producto) {
     addToCartState({
@@ -19,7 +19,7 @@ function handleAddToCart(producto) {
         precio: producto.precio
     });
     renderCart(getCart(), handleRemoveFromCart);
-    showToast(`${producto.nombre} añadido`);
+    // Toast removed - user sees product added to cart visually
 }
 
 function handleRemoveFromCart(id) {
@@ -30,25 +30,25 @@ function handleRemoveFromCart(id) {
 export function filterAndRenderVentaRapida() {
     const searchInput = document.getElementById('search-bar');
     const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-    
-    const filteredProducts = allProducts.filter(producto => 
+
+    const filteredProducts = allProducts.filter(producto =>
         producto.nombre.toLowerCase().includes(searchTerm)
     );
-    
+
     renderVentaRapida(filteredProducts, handleAddToCart);
 }
 
 export function loadVentaRapidaPanel() {
     const q = query(getProductosCol());
-    
+
     onSnapshot(q, (snapshot) => {
         const productos = [];
         snapshot.forEach(doc => {
             productos.push({ id: doc.id, ...doc.data() });
         });
-        
+
         allProducts = productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-        
+
         filterAndRenderVentaRapida();
 
     }, (error) => {
@@ -84,7 +84,7 @@ export async function handleVentaFormSubmit(e) {
 
     try {
         const venta = {
-            items: cart.map(item => ({...item})),
+            items: cart.map(item => ({ ...item })),
             total: total,
             metodoDePago: metodoDePago,
             clienteId: metodoDePago === 'Fiado' ? clienteId : null,
@@ -117,9 +117,9 @@ export async function handleVentaFormSubmit(e) {
         await Promise.all(updatePromises);
 
         clearCart();
-        renderCart(getCart(), handleRemoveFromCart); 
+        renderCart(getCart(), handleRemoveFromCart);
         resetVentaForm();
-        showToast("Venta registrada exitosamente");
+        // Toast removed - cart clears, form resets = visual confirmation
 
     } catch (error) {
         console.error("Error al registrar venta: ", error);

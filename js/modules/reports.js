@@ -1,6 +1,6 @@
-import { query, where, getDocs, onSnapshot, Timestamp } from '../firebase.js?v=4.0'; // MODIFICADO
-import { getVentasCol, getDeudasCol } from '../store.js?v=4.0'; // MODIFICADO
-import { showToast, updateReporteUI } from '../ui.js?v=4.0'; // MODIFICADO
+import { query, where, getDocs, onSnapshot, Timestamp } from '../firebase.js?v=5.3';
+import { getVentasCol, getDeudasCol } from '../store.js?v=5.3';
+import { showToast, updateReporteUI } from '../ui.js?v=5.3';
 
 /**
  * Función principal que lee las fechas del DOM y llama a loadReporte.
@@ -33,7 +33,7 @@ export function handleReporteDateChange() {
 }
 export function handleReporteRefreshClick() {
     loadReporteDelDia();
-    showToast("Reporte actualizado");
+    // Toast removed - visual update is sufficient feedback
 }
 
 /**

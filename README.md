@@ -3,7 +3,7 @@
 Sistema de gestión integral para bodegas y pequeños negocios, desarrollado con Firebase y JavaScript vanilla.
 
 [![Firebase](https://img.shields.io/badge/Firebase-Hosting-orange)](https://bodega-difital.web.app)
-[![Version](https://img.shields.io/badge/Version-4.0-blue)](https://github.com/ArnoldZamoratec/mi-bodega-digital)
+[![Version](https://img.shields.io/badge/Version-5.3-green)](https://github.com/ArnoldZamoratec/mi-bodega-digital)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ## 🌐 Demo en Vivo
@@ -158,6 +158,35 @@ Las contribuciones son bienvenidas. Por favor:
 5. Abre un Pull Request
 
 ## 📝 Changelog
+
+### v5.3 (2026-02-11)
+- 🌙 **Modo Oscuro/Claro**: Toggle entre temas con persistencia en localStorage
+- 🕐 **Reloj en Header**: Fecha y hora en tiempo real (DD/MM/YYYY HH:MM:SS)
+- 🔕 **Alertas Optimizadas**: Reducción de toasts excesivos para mejor UX
+- 🎨 **Dark Mode CSS**: Variables de tema y transiciones suaves
+- ⚡ **Mejor Feedback**: Feedback visual sin interrupciones constantes
+
+### v5.2 (2026-02-11)
+- 🟢 **Verde + Blanco**: Nueva paleta de confianza y cercanía
+- 🌿 **Color Principal**: Verde esmeralda (#059669) en lugar de azul
+- ✨ **Fondo Suave**: Gradiente verde claro (#ecfdf5 → #d1fae5)
+- 💚 **Psicología del Color**: Verde transmite confianza, crecimiento y cercanía
+- 🎨 **Diseño Fresco**: Perfecto para aplicaciones de bodega y comercio local
+
+### v5.1 (2026-02-11)
+- 🎨 **Paleta Profesional**: Cambio de colores morados a azules/grises sobrios
+- 🔧 **Corrección de Versiones**: Actualización de imports a v5.1 para evitar caché
+- 💎 **Colores Corporativos**: Azul (#2563eb), Verde (#059669), Rojo (#dc2626)
+- ✅ **Estabilidad**: Correcciones en módulos POS y Reportes
+
+### v5.0 (2026-02-11)
+- ✨ **Diseño Moderno Premium**: Sistema completo de diseño con gradientes vibrantes
+- 🎨 **Glassmorphism**: Efectos de vidrio translúcido en tarjetas y modales
+- ⚡ **Animaciones Suaves**: Transiciones y micro-interacciones en toda la app
+- 🎯 **Iconos SVG**: Iconografía moderna en todos los módulos
+- 💎 **Paleta de Colores**: Gradientes púrpura-azul, verde esmeralda, y más
+- 🚀 **Mejoras UX**: Botones con hover lift, loading spinners, mejor jerarquía visual
+- 📱 **Optimización Visual**: Cards mejoradas, sombras dinámicas, tipografía premium
 
 ### v4.0 (2026-02-10)
 - ✅ Removido panel de depuración

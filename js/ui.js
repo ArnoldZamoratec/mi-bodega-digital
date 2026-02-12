@@ -2,7 +2,7 @@ import {
     setEditingProductoId, 
     setEditingClienteId, 
     getDeudasPendientes 
-} from './store.js?v=4.0'; // MODIFICADO
+} from './store.js?v=5.3'; // MODIFICADO
 
 // --- INICIO MEJORA 2A: GRÁFICO ---
 let mySalesChart = null;
@@ -478,7 +478,7 @@ export function setupTabs() {
 
             if (tabId === 'tab-reportes') {
                 // Importamos dinámicamente para evitar loops
-                import('./modules/reports.js?v=4.0').then(reportsModule => { // MODIFICADO
+                import('./modules/reports.js?v=5.3').then(reportsModule => { // MODIFICADO
                     reportsModule.loadReporteDelDia();
                 });
             }

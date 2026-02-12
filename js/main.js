@@ -10,13 +10,13 @@ import {
     signOut,
     setPersistence, // <-- HERRAMIENTA CORREGIDA
     browserLocalPersistence // <-- HERRAMIENTA CORREGIDA
-} from './firebase.js?v=4.0'; // MODIFICADO
+} from './firebase.js?v=5.3'; // MODIFICADO
 
-import { setupEventListeners } from './handlers.js?v=4.0';
-import { setUserId } from './store.js?v=4.0';
-import { loadProductos } from './modules/inventory.js?v=4.0';
-import { loadClientesFiado, loadClientesParaVenta } from './modules/clients.js?v=4.0';
-import { loadVentaRapidaPanel } from './modules/pos.js?v=4.0';
+import { setupEventListeners } from './handlers.js?v=5.3';
+import { setUserId } from './store.js?v=5.3';
+import { loadProductos } from './modules/inventory.js?v=5.3';
+import { loadClientesFiado, loadClientesParaVenta } from './modules/clients.js?v=5.3';
+import { loadVentaRapidaPanel } from './modules/pos.js?v=5.3';
 
 // --- Selectores de Elementos UI ---
 const loginContainer = document.getElementById('login-container');

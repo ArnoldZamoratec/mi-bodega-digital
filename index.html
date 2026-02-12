@@ -10,8 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Production Version 4.0 -->
-    <link rel="stylesheet" href="css/style.css?v=4.0">
+    <!-- Green & White Version 5.3 -->
+    <link rel="stylesheet" href="css/style.css?v=5.3">
 </head>
 
 <body class="bg-gray-100">
@@ -22,16 +22,16 @@
     *****************************************
     -->
     <div id="login-container" class="flex items-center justify-center h-screen">
-        <div class="p-8 bg-white shadow-lg rounded-lg w-full max-w-sm">
-            <h1 class="text-2xl font-bold text-center text-blue-600 mb-2">Mi Bodega Digital</h1>
-            <p id="auth-mode-title" class="text-center text-gray-600 mb-4">Acceso de Administrador</p>
+        <div class="p-8 glass-card rounded-2xl w-full max-w-sm animate-slide-in-up">
+            <h1 class="text-3xl font-bold text-center text-gradient mb-2">Mi Bodega Digital</h1>
+            <p id="auth-mode-title" class="text-center text-gray-600 mb-6">Acceso de Administrador</p>
 
             <!-- Toggle entre Login y Registro -->
             <div class="flex justify-center mb-4">
-                <button id="toggle-to-register" class="text-sm text-blue-600 hover:underline">
+                <button id="toggle-to-register" class="text-sm text-green-600 hover:underline">
                     ¿No tienes cuenta? <span class="font-semibold">Crear cuenta</span>
                 </button>
-                <button id="toggle-to-login" class="text-sm text-blue-600 hover:underline hidden">
+                <button id="toggle-to-login" class="text-sm text-green-600 hover:underline hidden">
                     ¿Ya tienes cuenta? <span class="font-semibold">Iniciar sesión</span>
                 </button>
             </div>
@@ -56,8 +56,9 @@
 
                 <!-- Botón de Email/Password -->
                 <button type="submit" id="email-login-btn"
-                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700 transition">
-                    Ingresar con Email
+                    class="w-full bg-gradient-primary text-white py-3 px-4 rounded-lg font-semibold hover-lift shadow-md transition-all">
+                    <span id="login-btn-text">Ingresar con Email</span>
+                    <span id="login-spinner" class="hidden">Cargando...</span>
                 </button>
             </form>
 
@@ -92,7 +93,7 @@
 
                 <!-- Botón de Registro -->
                 <button type="submit" id="register-btn"
-                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-700 transition">
+                    class="w-full bg-gradient-success text-white py-3 px-4 rounded-lg font-semibold hover-lift shadow-md transition-all">
                     Crear Cuenta
                 </button>
             </form>
@@ -106,7 +107,7 @@
 
             <!-- Botón de Google -->
             <button id="google-login-btn"
-                class="w-full bg-white text-gray-700 py-2 px-4 rounded-md font-semibold border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                class="w-full bg-white text-gray-700 py-3 px-4 rounded-lg font-semibold border-2 border-gray-200 hover:border-gray-300 hover-lift shadow-sm transition-all flex items-center justify-center gap-2">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -123,8 +124,8 @@
 
 
             <!-- Crédito de Creador -->
-            <p class="text-xs text-gray-400 mt-8 text-center tracking-wide">
-                Una solución de <span class="font-semibold text-gray-600">ARNOLD CODE</span>
+            <p class="text-xs text-gray-500 mt-8 text-center tracking-wide">
+                Una solución de <span class="font-semibold text-gradient">ARNOLD CODE</span>
             </p>
         </div>
     </div>
@@ -138,21 +139,56 @@
     <div id="app-container"
         class="container mx-auto max-w-6xl h-[95vh] my-4 bg-white shadow-lg overflow-hidden rounded-lg flex-col hidden">
 
-        <!-- Cabecera (Botón Salir AÑADIDO OTRA VEZ) -->
-        <header class="bg-white p-4 shadow-md z-10 flex-shrink-0">
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-center text-blue-600">Mi Bodega Digital</h1>
+
+
+        <!-- Cabecera -->
+        <header class="bg-white p-4 shadow-md z-10 flex-shrink-0 border-b-2 border-transparent"
+            style="border-image: linear-gradient(90deg, #059669, #047857) 1;">
+            <div class="flex justify-between items-center mb-2">
+                <h1 class="text-2xl font-bold text-gradient">Mi Bodega Digital</h1>
+
+                <!-- Clock Display - Mejorado -->
+                <div id="header-clock"
+                    class="hidden md:flex items-center gap-4 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span id="current-date" class="text-sm font-semibold text-gray-700">--/--/----</span>
+                    </div>
+                    <div class="h-6 w-px bg-green-300"></div>
+                    <div class="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span id="current-time" class="text-sm font-mono font-semibold text-gray-700">--:--:--</span>
+                    </div>
+                </div>
+
+                <!-- Logout Button -->
                 <button id="logout-btn"
-                    class="text-sm bg-red-500 text-white py-1 px-3 rounded-md hover:bg-red-600 transition duration-300">Salir</button>
+                    class="text-sm bg-gradient-danger text-white py-2 px-4 rounded-lg hover-lift shadow-sm transition-all flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Salir
+                </button>
             </div>
-            <p id="user-id-display" class="text-center text-xs text-gray-400 mt-1">Cargando...</p>
+            <p id="user-id-display" class="text-center text-xs text-gray-500">Cargando...</p>
         </header>
 
         <!-- Contenido (scrollable) -->
         <main id="main-content" class="flex-grow overflow-y-auto p-4 no-scrollbar">
 
             <div id="loading-screen" class="text-center p-10">
-                <p class="text-gray-500">Cargando datos...</p>
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-gray-500 font-medium">Cargando datos...</p>
             </div>
 
             <!-- Contenido de las Pestañas -->
@@ -161,23 +197,36 @@
                 <!-- Pestaña Vender (POS) -->
                 <div id="tab-vender" class="tab-content">
                     <h2 class="text-xl font-semibold mb-3">Vender</h2>
-                    <div class="mb-4">
-                        <input type="search" id="search-bar" placeholder="Buscar productos por nombre..."
-                            class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <div class="mb-4 relative">
+                        <input type="search" id="search-bar" placeholder="🔍 Buscar productos por nombre..."
+                            class="w-full p-3 pl-4 border-2 border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div id="panel-venta-rapida"
-                            class="bg-gray-50 p-3 rounded-lg h-[60vh] overflow-y-auto no-scrollbar">
-                            <h3 class="font-semibold mb-2 text-gray-700">Productos</h3>
+                        <div id="panel-venta-rapida" class="card p-4 rounded-xl h-[60vh] overflow-y-auto">
+                            <h3 class="font-semibold mb-3 text-gray-800 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-600" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                Productos Disponibles
+                            </h3>
                             <div id="lista-venta-rapida" class="space-y-2"></div>
                         </div>
-                        <div class="bg-white p-4 rounded-lg shadow-inner">
-                            <h3 class="text-lg font-semibold mb-4">Carrito</h3>
-                            <div id="cart-items" class="space-y-2 mb-4"></div>
-                            <div class="border-t pt-4">
+                        <div class="card-gradient p-5 rounded-xl shadow-lg">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                Carrito de Compras
+                            </h3>
+                            <div id="cart-items" class="space-y-2 mb-4 min-h-[200px]"></div>
+                            <div class="border-t-2 border-gray-200 pt-4">
                                 <div class="flex justify-between items-center mb-4">
                                     <span class="text-lg font-semibold">Total:</span>
-                                    <span id="cart-total" class="text-2xl font-bold text-blue-600">S/ 0.00</span>
+                                    <span id="cart-total" class="text-2xl font-bold text-green-600">S/ 0.00</span>
                                 </div>
                                 <form id="venta-form">
                                     <div class="mb-3">
@@ -196,7 +245,12 @@
                                             class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
                                     </div>
                                     <button type="submit"
-                                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-700 transition">
+                                        class="w-full bg-gradient-primary text-white py-3 px-4 rounded-lg font-semibold hover-lift shadow-md transition-all flex items-center justify-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                            viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
                                         Registrar Venta
                                     </button>
                                 </form>
@@ -209,8 +263,12 @@
                 <div id="tab-inventario" class="tab-content hidden">
                     <h2 class="text-xl font-semibold mb-3">Inventario</h2>
                     <button id="show-producto-form-btn"
-                        class="w-full bg-green-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-600 transition mb-4">
-                        + Añadir Nuevo Producto
+                        class="w-full bg-gradient-success text-white py-3 px-4 rounded-lg font-semibold hover-lift shadow-md transition-all mb-4 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Añadir Nuevo Producto
                     </button>
                     <div id="lista-productos" class="space-y-3"></div>
                 </div>
@@ -219,8 +277,13 @@
                 <div id="tab-fiado" class="tab-content hidden">
                     <h2 class="text-xl font-semibold mb-3">Cuentas (Fiado)</h2>
                     <button id="show-cliente-form-btn"
-                        class="w-full bg-green-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-green-600 transition mb-4">
-                        + Añadir Nuevo Cliente
+                        class="w-full bg-gradient-success text-white py-3 px-4 rounded-lg font-semibold hover-lift shadow-md transition-all mb-4 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        Añadir Nuevo Cliente
                     </button>
                     <div id="lista-clientes-fiado" class="space-y-3"></div>
                 </div>
@@ -239,7 +302,7 @@
                             <input type="date" id="reporte-fecha-fin" class="w-full p-2 border rounded-md shadow-sm">
                         </div>
                         <button id="actualizar-reporte-btn"
-                            class="p-2 bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 self-end h-[42px] mt-1 md:mt-6">
+                            class="p-3 bg-gradient-primary text-white rounded-lg hover-lift shadow-md self-end h-[46px] mt-1 md:mt-6 transition-all flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
                                 stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -247,11 +310,18 @@
                             </svg>
                         </button>
                     </div>
-                    <div class="bg-white p-4 rounded-lg shadow-inner space-y-3 max-w-xl mx-auto mb-4">
-                        <h3 class="font-semibold text-lg text-gray-800">Resumen del Periodo</h3>
+                    <div class="card-gradient p-5 rounded-xl shadow-lg space-y-3 max-w-xl mx-auto mb-4">
+                        <h3 class="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-600" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            Resumen del Periodo
+                        </h3>
                         <div class="flex justify-between items-center text-2xl">
                             <span class="font-semibold text-gray-700">Ingresos Totales:</span>
-                            <span id="reporte-total-general" class="font-bold text-blue-600">S/ 0.00</span>
+                            <span id="reporte-total-general" class="font-bold text-green-600">S/ 0.00</span>
                         </div>
                         <hr>
                         <div class="flex justify-between items-center text-lg">
@@ -289,7 +359,7 @@
 
         <!-- Navegación Inferior -->
         <nav class="bg-white p-2 shadow-inner border-t grid grid-cols-4 gap-1 flex-shrink-0">
-            <button data-tab="tab-vender" class="nav-tab p-2 rounded-lg text-blue-600 bg-blue-50">
+            <button data-tab="tab-vender" class="nav-tab p-2 rounded-lg text-green-600 bg-blue-50">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mx-auto" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round"
@@ -489,8 +559,12 @@
         }
     </style>
 
-    <!-- Production Version 4.0 -->
-    <script type="module" src="js/main.js?v=4.0"></script>
+    <!-- v5.3 - Clock Only (Light Theme) -->
+    <script type="module">
+        import { initClock } from './js/clock.js?v=5.3';
+        initClock();
+    </script>
+    <script type="module" src="js/main.js?v=5.3"></script>
 
 </body>
 

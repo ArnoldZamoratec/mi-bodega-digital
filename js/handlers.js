@@ -6,17 +6,17 @@ import {
     hideClienteDetalleModal,
     toggleClienteFiadoSelect,
     setupTabs
-} from './ui.js?v=4.0';
+} from './ui.js?v=5.3';
 
 import {
     handleVentaFormSubmit,
     handleCartClick,
     filterAndRenderVentaRapida
-} from './modules/pos.js?v=4.0';
+} from './modules/pos.js?v=5.3';
 
 import {
     handleProductoFormSubmit
-} from './modules/inventory.js?v=4.0';
+} from './modules/inventory.js?v=5.3';
 
 import {
     handleClienteFormSubmit,
@@ -24,12 +24,12 @@ import {
     handlePagoFormSubmit,
     handleHistorialClick,
     getCurrentClienteData
-} from './modules/clients.js?v=4.0';
+} from './modules/clients.js?v=5.3';
 
 import {
     handleReporteDateChange,
     handleReporteRefreshClick
-} from './modules/reports.js?v=4.0';
+} from './modules/reports.js?v=5.3';
 
 export function setupEventListeners() {
     // Navegación de Pestañas
