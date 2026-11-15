@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: core + web + mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Mismo huso que el negocio (Perú); las pruebas no deberían depender de él, pero así
+      # CI se parece a la máquina de desarrollo.
+      TZ: America/Lima
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar (npm workspaces)
+        run: npm ci
+
+      - name: Core — typecheck
+        run: npm run typecheck -w @bodegon/core
+
+      - name: Core — pruebas + cobertura (≥ 70 %)
+        run: npm run test:coverage -w @bodegon/core
+
+      - name: Web — pruebas (Vitest)
+        run: npm run test:web
+
+      - name: Web — build (tsc + Vite + PWA)
+        run: npm run build:web
+
+      - name: Móvil — typecheck
+        run: npm run typecheck -w mobile
+
+      - name: Móvil — lint
+        run: npm run lint -w mobile
+
+      - name: Móvil — pruebas (Jest)
+        run: npm run test:mobile

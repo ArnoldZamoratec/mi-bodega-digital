@@ -67,3 +67,8 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+# Monorepo (web Vite + PWA)
+web/dist/
+web/dev-dist/
+*.tsbuildinfo

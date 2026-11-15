@@ -10,6 +10,24 @@ Sistema de gestión integral para bodegas y pequeños negocios, desarrollado con
 
 **URL**: [https://bodega-difital.web.app](https://bodega-difital.web.app)
 
+## 🧱 Estructura (monorepo, npm workspaces)
+
+| Carpeta | Qué es |
+|---|---|
+| `packages/core` | **`@bodegon/core`**: reglas de negocio en TypeScript puro (dinero en céntimos, saldo y FIFO de fiado, reportes con fecha efectiva `creadaEn ?? fecha`, ventas/anulaciones, recordatorio de WhatsApp). Lo usan la web y la app: **una sola fuente de verdad**. |
+| `web/` | App web: Vite + TypeScript, Tailwind v3 compilado, Firebase y Chart.js por npm, PWA. Se publica `web/dist`. |
+| `mobile/` | App Expo (React Native). Importa el core como `@/domain/...` (alias a `packages/core/src`). |
+
+```bash
+npm install            # una vez, en la raíz
+npm run dev:web        # web en http://localhost:5173
+npm run build:web      # genera web/dist (lo que publica Firebase Hosting)
+npm test               # core (Jest) + web (Vitest) + móvil (Jest)
+npm run verify         # typecheck + lint + pruebas + build (lo mismo que CI)
+```
+
+CI: `.github/workflows/ci.yml` corre lo mismo en cada push y pull request.
+
 ## ✨ Características
 
 ### 💰 Sistema de Ventas (POS)
@@ -99,9 +117,13 @@ firebase login
 # Inicializar (si es necesario)
 firebase init hosting
 
-# Desplegar
-firebase deploy
+# Desplegar (el predeploy de firebase.json ejecuta `npm run build:web` y publica web/dist)
+firebase deploy --only hosting
 ```
+
+> La cabecera `Content-Security-Policy-Report-Only` (fuente: `web/csp.config.ts`) solo informa.
+> Tras verificar en producción que el login con Google no muestra violaciones en la consola,
+> cambiarla a `Content-Security-Policy` en ambos archivos.
 
 ## 📱 Uso
 

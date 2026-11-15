@@ -12,7 +12,7 @@ Las propuestas de la Fase 0 fueron aprobadas por el dueño del proyecto; solo D-
 - **Descartado:** WebView/Capacitor (prohibido), Flutter (otra base de lenguaje).
 - **Consecuencias:** builds con EAS; iOS solo vía nube desde Windows (R-02).
 
-### D-02 · La app vive en `mobile/` del mismo repositorio — Vigente
+### D-02 · La app vive en `mobile/` del mismo repositorio — Reemplazada por D-27 (la app sigue en `mobile/`; el "sin workspaces" ya no aplica)
 - **Contexto:** la web sigue en producción sobre los mismos datos.
 - **Decisión:** carpeta `mobile/` independiente (su propio `package.json`). La web no se modifica.
 - **Descartado:** repo nuevo (pierde trazabilidad con la lógica original); monorepo con workspaces (la web no tiene build, no aporta).
@@ -154,13 +154,13 @@ service cloud.firestore {
 - **Fecha efectiva:** `fechaEfectiva = creadaEn ?? fecha` (`rules/reportes.ts`). Si `creadaEn` es posterior a `fecha` (reloj adelantado) o más de 3 días anterior (reloj atrasado u outbox muy viejo), manda `fecha`. Así cada documento cae en un solo día.
 - **Consultas:** se sigue filtrando por `fecha` (índice simple, sin índices nuevos) pero desde el inicio del rango hasta fin + 3 días (`rangoConsulta`), y luego se filtra en memoria por fecha efectiva (`enRangoEfectivo`). El margen de 3 días es el mismo que acota `fechaEfectiva`, por lo que nada queda fuera. Costo: el reporte lee hasta 3 días extra de documentos.
 - **Día:** se agrupa por día local del teléfono (B-04), que en Perú es America/Lima.
-- **Compatibilidad:** documentos de la web y antiguos no tienen `creadaEn` y siguen usando `fecha`. La web aún agrupa por `fecha`; para alinearla, debería usar `creadaEn ?? fecha` igual que aquí.
+- **Compatibilidad:** documentos de la web y antiguos no tienen `creadaEn` y siguen usando `fecha`. Desde D-29 la web usa la misma `fechaEfectiva` del core (con los resguardos) y el mismo `rangoConsulta`.
 
 ### D-27 · Cobranza y recordatorio por WhatsApp (`clientes.ultimoRecordatorio`) — Vigente
 - **Qué:** pantalla **Cobranza** (botón en la pestaña Fiado) con los clientes de saldo > 0, primero quien debe desde hace más tiempo. Cada fila: saldo, "debe desde hace N días", "último recordatorio hace N días" y **Recordar por WhatsApp**. Arriba: total por cobrar y **recuperado este mes**.
 - **Orden:** el cargo "más antiguo" es el primero que los abonos aún no cubren (FIFO de D-14, el mismo que muestra el detalle), con su **fecha efectiva** (D-26). Empates: mayor saldo, luego nombre. Los días son de calendario local (hoy = 0, ayer = 1).
 - **Recuperado este mes:** suma de abonos (cualquier medio) con fecha efectiva en el mes calendario local del teléfono (America/Lima en Perú, B-04), incluidos los que esperan en el teléfono.
-- **Mensaje:** el armado del texto y del enlace `wa.me` pasó de `ClienteDetalleScreen` a `domain/rules/cobranza.ts` (`numeroWhatsapp`, `mensajeRecordatorio`, `enlaceRecordatorio`) y lo usan las dos pantallas. Tono de IDENTIDAD_VISUAL §9: saluda por el nombre, dice el saldo, agradece; nunca "deuda", "moroso" ni urgencias. Firma con el nombre del negocio si se configuró ("tu bodega" si no).
+- **Mensaje:** el armado del texto y del enlace `wa.me` vive en un solo lugar: `rules/recordatorio.ts` del core (D-29); `rules/cobranza.ts` solo lo reexpone. Web, Cobranza y detalle del cliente mandan el mismo texto. Tono de IDENTIDAD_VISUAL §9: saluda por el nombre, dice el saldo, agradece; nunca "deuda", "moroso" ni urgencias. Firma con el nombre del negocio si se configuró ("tu bodega" si no).
 - **Pausa de 3 días (`DIAS_PAUSA_RECORDATORIO`):** si se recordó hace menos de 72 h, el botón pasa a un estilo de texto discreto ("Recordado ayer · volver a escribir"). **No bloquea**: el dueño decide.
 - **Dato:** campo aditivo `clientes.ultimoRecordatorio` (Timestamp, hora del teléfono). Se escribe con `updateDoc` **sin esperar** al servidor: el listener lo muestra al instante (compensación de latencia del SDK) y un error solo se registra en consola, porque el WhatsApp ya salió. La web lo ignora y, al editar un cliente con `updateDoc`, lo conserva.
 - **Reglas:** `ultimoRecordatorio` entra a la lista cerrada de claves de `clientes`; debe ser `timestamp` y no más de 1 día en el futuro (`horaTelefono`).
@@ -175,3 +175,13 @@ service cloud.firestore {
 - **Una caja abierta por usuario:** se valida en el dominio (`armarApertura`) contra las cajas confirmadas **y** las pendientes. Las reglas no pueden consultar "¿hay otra abierta?" sin un documento puntero; dos teléfonos de la misma cuenta abriendo sin conexión podrían crear dos. Si pasa, la pantalla usa la más reciente y la otra puede cerrarse después. Pendiente si se habilita multiusuario (D-10): documento `cajas/actual` con transacción.
 - **Reglas:** dueño únicamente; apertura con claves conocidas, `monto` 0–100 000, `fecha == request.time`; cierre con `contado` 0–100 000, `diferencia == contado − esperado` (± medio céntimo), solo `estado` y `cierre` cambian; sin borrar; movimientos solo `create`, `monto` > 0, `motivo` 1–80, `tipo` válido, caja padre abierta.
 - **Plan Pro:** Cobranza y Caja son candidatas al plan de pago; no hay control de plan en esta versión (no existe aún un campo de suscripción).
+
+
+### D-29 · Monorepo con un solo núcleo de negocio (`@bodegon/core`) — Vigente
+- **Problema:** la web (JS propio) y la app (dominio TS) calculaban saldos, FIFO, reportes y fechas por separado y se podían contradecir (la web agrupaba por `creadaEn || fecha` sin resguardos, ofrecía "Pagar" en cargos ya cubiertos por abonos y sumaba en coma flotante).
+- **Decisión:** npm workspaces en la raíz: `packages/*`, `web`, `mobile`. `mobile/src/domain` pasó a `packages/core/src` (`git mv`) como paquete `@bodegon/core`: TS puro, sin React ni Firebase, con su propio `tsconfig` y Jest (babel-jest). La web (Vite + TS) lo importa como `@bodegon/core`; la app lo sigue importando como `@/domain/...`.
+- **Alias en móvil:** `tsconfig.json` `paths` (`@/domain/*` → `../packages/core/src/*`, antes que `@/*`) y Jest `moduleNameMapper` en el mismo orden. Metro: **sin** `watchFolders`/`nodeModulesPaths` manuales; la guía de Expo (SDK 52+) los configura solos en monorepos y pide no fijarlos. Metro resuelve el alias con los `paths` de tsconfig. Verificado con `npx expo export --platform android`.
+- **Por qué `mobile` entra en workspaces:** probado sin romper Metro, Jest (127 pruebas: 57 en móvil + 70 movidas al core) ni ESLint. Un solo `node_modules` en la raíz sin duplicados de `react`, `react-native`, `firebase` ni `typescript` (`npm ls`). Se eliminó `mobile/package-lock.json`.
+- **Agregado al core:** `rules/recordatorio.ts` (mensaje y enlace de WhatsApp, antes armado dentro de `ClienteDetalleScreen`; ahora lo usan web y app) y `rules/fechasLima.ts` (día de Lima independiente de la zona del navegador). `generarReporte` acepta la función de clave de día (móvil: día local; web: `claveDiaLima`).
+- **Cobertura:** el umbral ≥ 70 % del dominio se mide en `packages/core` (`npm run test:coverage -w @bodegon/core`). Los casos de uso del core se ejercitan en `mobile/src/__tests__/integracion`.
+- **Consecuencia:** `npm install` va en la raíz. Las builds locales de Android en Windows deben copiar el repo completo a la ruta corta (README móvil).

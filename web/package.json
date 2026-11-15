@@ -1,0 +1,31 @@
+{
+  "name": "web",
+  "version": "6.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bodegón Digital — app web (Vite + TypeScript) servida por Firebase Hosting desde web/dist.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@bodegon/core": "*",
+    "chart.js": "^4.5.0",
+    "firebase": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "autoprefixer": "^10.4.21",
+    "jsdom": "^26.1.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.0",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
+  }
+}
