@@ -26,7 +26,7 @@ import { conectarLogin } from './views/login';
 initTheme();
 
 const sinRed = $('sin-red');
-if (sinRed) sinRed.textContent = 'Sin internet. Puedes seguir mirando; para registrar ventas y abonos necesitas conexión.';
+if (sinRed) sinRed.textContent = 'Sin internet. Puedes seguir mirando; para registrar ventas, abonos y la caja necesitas conexión.';
 
 function mostrarLogin(): void {
   $('cargando')?.setAttribute('hidden', '');

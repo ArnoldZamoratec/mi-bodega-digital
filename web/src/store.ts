@@ -56,3 +56,7 @@ export const getClientesCol = (): CollectionReference => collection(db, ruta('cl
 export const getVentasCol = (): CollectionReference => collection(db, ruta('ventas'));
 export const getDeudasCol = (): CollectionReference => collection(db, ruta('deudas'));
 export const getConfigNegocioDoc = (): DocumentReference => doc(db, ruta('config/negocio'));
+/** Caja (D-28): `cajas/{cajaId}` y `cajas/{cajaId}/movimientos/{id}`. */
+export const getCajasCol = (): CollectionReference => collection(db, ruta('cajas'));
+export const getMovimientosCajaCol = (cajaId: string): CollectionReference =>
+  collection(db, ruta(`cajas/${cajaId}/movimientos`));

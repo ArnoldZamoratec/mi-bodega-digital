@@ -13,6 +13,7 @@ import {
   type RangoFechas,
   type Venta,
 } from '@bodegon/core';
+import type { Caja, MovimientoCaja } from '@bodegon/core/rules/caja';
 
 import { actualizarDatos, usarFuente, type FuenteDatos } from '../datos';
 import { $ } from '../dom';
@@ -123,13 +124,44 @@ function generarVentas(): Venta[] {
 }
 
 let ventas: Venta[] = generarVentas();
+
+// Caja (D-28): cierres de días anteriores (cuadra, sobrante, faltante leve y faltante) y una
+// caja abierta hoy desde las 8:05. `?caja=cerrada` muestra la pantalla sin caja abierta.
+const cierreDemo = (dias: number, abre: [number, number], cierra: [number, number], inicial: number, esperado: number, contado: number): Caja => ({
+  id: `caja-${dias}`,
+  estado: 'cerrada',
+  apertura: { monto: inicial, fecha: enLima(dias, ...abre), creadaEn: enLima(dias, ...abre) },
+  cierre: {
+    esperado,
+    contado,
+    diferencia: Math.round((contado - esperado) * 100) / 100,
+    fecha: enLima(dias, ...cierra),
+    creadaEn: enLima(dias, ...cierra),
+  },
+});
+let cajas: Caja[] = [
+  cierreDemo(1, [7, 50], [21, 30], 50, 412.8, 412.8),
+  cierreDemo(2, [8, 0], [21, 10], 50, 386.4, 388.4),
+  cierreDemo(3, [7, 45], [21, 5], 100, 455.1, 454.6),
+  cierreDemo(4, [8, 10], [20, 50], 50, 398.7, 390.7),
+];
+let movimientosCaja: MovimientoCaja[] = [];
+if (new URLSearchParams(location.search).get('caja') !== 'cerrada' && enLima(0, 8, 5).getTime() < ahora) {
+  cajas = [{ id: 'caja-hoy', estado: 'abierta', apertura: { monto: 50, fecha: enLima(0, 8, 5), creadaEn: enLima(0, 8, 5) } }, ...cajas];
+  movimientosCaja = [
+    { id: 'mc1', cajaId: 'caja-hoy', tipo: 'egreso', monto: 18, motivo: 'Pago al proveedor de pan', fecha: enLima(0, 8, 40) },
+    { id: 'mc2', cajaId: 'caja-hoy', tipo: 'ingreso', monto: 20, motivo: 'Sencillo del banco', fecha: enLima(0, 9, 15) },
+  ].filter((m) => (m.fecha?.getTime() ?? 0) < ahora) as MovimientoCaja[];
+}
+const oyentesMovsCaja = new Set<() => void>();
 let contador = 1000;
 const nuevoId = (p: string): string => `${p}${++contador}`;
 
 const oyentesRango = new Set<() => void>();
 const emitir = (): void => {
-  actualizarDatos({ productos: [...productos], clientes: [...clientes], movimientos: [...movimientos] });
+  actualizarDatos({ productos: [...productos], clientes: [...clientes], movimientos: [...movimientos], cajas: [...cajas] });
   for (const fn of oyentesRango) fn();
+  for (const fn of oyentesMovsCaja) fn();
 };
 
 const esperar = (ms = 350): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -200,6 +232,36 @@ const fuenteDemo: FuenteDatos = {
     oyentesRango.add(fn);
     setTimeout(fn, 400); // deja ver los esqueletos de carga
     return () => oyentesRango.delete(fn);
+  },
+  nuevoIdCaja: () => nuevoId('caja'),
+  nuevoIdMovimientoCaja: () => nuevoId('mc'),
+  async guardarCaja(op) {
+    await esperar();
+    // Misma idempotencia que la transacción real: lo que ya existe no se reescribe.
+    const ahoraOp = new Date();
+    const creadaEn = new Date(op.creadaEn);
+    if (op.tipo === 'abrir') {
+      if (!cajas.some((c) => c.id === op.cajaId)) {
+        cajas = [{ id: op.cajaId, estado: 'abierta', apertura: { monto: op.monto, fecha: ahoraOp, creadaEn } }, ...cajas];
+      }
+    } else if (op.tipo === 'movimiento') {
+      if (!movimientosCaja.some((m) => m.id === op.id)) {
+        movimientosCaja = [...movimientosCaja, { id: op.id, cajaId: op.cajaId, ...op.movimiento, fecha: ahoraOp, creadaEn }];
+      }
+    } else {
+      cajas = cajas.map((c) =>
+        c.id === op.cajaId && c.estado === 'abierta'
+          ? { ...c, estado: 'cerrada', cierre: { ...op.cierre, fecha: ahoraOp, creadaEn } }
+          : c,
+      );
+    }
+    emitir();
+  },
+  observarMovimientosCaja(cajaId, onDatos) {
+    const fn = () => onDatos(movimientosCaja.filter((m) => m.cajaId === cajaId));
+    oyentesMovsCaja.add(fn);
+    setTimeout(fn, 300);
+    return () => oyentesMovsCaja.delete(fn);
   },
   async cerrarSesion() {
     location.href = '/';

@@ -43,6 +43,10 @@ function fuenteFalsa(extra: Partial<FuenteDatos> = {}): FuenteDatos {
     eliminarMovimiento: vi.fn(async () => undefined),
     marcarRecordatorio: vi.fn(async () => undefined),
     observarRango: vi.fn(() => () => undefined),
+    nuevoIdCaja: () => `caja${++n}`,
+    nuevoIdMovimientoCaja: () => `mc${++n}`,
+    guardarCaja: vi.fn(async () => undefined),
+    observarMovimientosCaja: vi.fn(() => () => undefined),
     cerrarSesion: vi.fn(async () => undefined),
     ...extra,
   };

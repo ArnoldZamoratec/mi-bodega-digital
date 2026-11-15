@@ -8,8 +8,10 @@ import type {
   RangoFechas,
   Venta,
 } from '@bodegon/core';
+import type { Caja, MovimientoCaja, OperacionCaja } from '@bodegon/core/rules/caja';
 
 import type { Cancelar } from './listeners';
+import type { CajaEnVivo } from './logic/caja';
 
 /**
  * Estado en memoria que comparten las vistas. `null` = aún cargando (las vistas muestran
@@ -20,6 +22,10 @@ export interface EstadoDatos {
   productos: Producto[] | null;
   clientes: Cliente[] | null;
   movimientos: MovimientoFiado[] | null;
+  /** Sesiones de caja (D-28): pocas, una por turno. */
+  cajas: Caja[] | null;
+  /** Movimientos y ventas de la caja abierta (solo mientras hay una). */
+  cajaVivo: CajaEnVivo | null;
   nombreBodega: string | null;
   email: string | null;
 }
@@ -28,6 +34,8 @@ const vacio = (): EstadoDatos => ({
   productos: null,
   clientes: null,
   movimientos: null,
+  cajas: null,
+  cajaVivo: null,
   nombreBodega: null,
   email: null,
 });
@@ -83,6 +91,16 @@ export interface FuenteDatos {
   observarRango(
     rango: RangoFechas,
     onDatos: (ventas: Venta[], movimientos: MovimientoFiado[]) => void,
+    onError: (mensaje: string) => void,
+  ): Cancelar;
+  // --- Caja (D-28). Web en línea: cada operación es UNA transacción idempotente por id. ---
+  nuevoIdCaja(): string;
+  nuevoIdMovimientoCaja(cajaId: string): string;
+  /** Apertura, movimiento o cierre armados por el core. Reintentar con el mismo id no duplica. */
+  guardarCaja(op: OperacionCaja): Promise<void>;
+  observarMovimientosCaja(
+    cajaId: string,
+    onDatos: (movimientos: MovimientoCaja[]) => void,
     onError: (mensaje: string) => void,
   ): Cancelar;
   cerrarSesion(): Promise<void>;

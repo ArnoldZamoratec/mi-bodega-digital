@@ -514,6 +514,35 @@ describe('caja (D-28)', () => {
     await assertSucceeds(getDoc(movRef(db)));
   });
 
+  it('flujo de la web (web/src/mappersCaja.ts): apertura con creadaEn y SIN origen', async () => {
+    const db = comoAna();
+    const ref = cajaRef(db, 'web1');
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        await tx.get(ref);
+        tx.set(ref, {
+          estado: 'abierta',
+          apertura: { monto: 100, fecha: serverTimestamp(), creadaEn: Timestamp.now() },
+        });
+      }),
+    );
+    // `origen` distinto de 'movil' no se acepta: la web no lo escribe.
+    await assertFails(setDoc(cajaRef(db, 'web2'), { ...apertura(), origen: 'web' }));
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        const m = movRef(db, 'mw1', 'web1');
+        await tx.get(m);
+        tx.set(m, movimiento({ tipo: 'ingreso', motivo: 'x'.repeat(80) }));
+      }),
+    );
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        await tx.get(ref);
+        tx.update(ref, cierre({ contado: 100, esperado: 87.3, diferencia: 12.7 }));
+      }),
+    );
+  });
+
   it('una caja cerrada es inmutable: no se reabre, recierra, recibe movimientos ni se borra', async () => {
     const db = comoAna();
     await assertSucceeds(setDoc(cajaRef(db), apertura()));

@@ -1,10 +1,12 @@
 import { productosConStockBajo } from '@bodegon/core';
 
+import { iniciarCajaVivo, reiniciarCajaVivo } from './cajaVivo';
 import { datos, suscribirDatos, type EstadoDatos } from './datos';
 import { $, cerrarPanel, esc, panelAbierto } from './dom';
 import { icono, type NombreIcono } from './icons';
 import { alternarTema, alCambiarTema, temaActual } from './theme';
 import { montarAjustes, mostrarAjustes, renderAjustes } from './views/ajustes';
+import { montarCaja, mostrarCaja, reiniciarCaja, renderCaja } from './views/caja';
 import { montarCobrar, mostrarCobrar, renderCobrar } from './views/cobrar';
 import { abrirEditorProducto } from './views/editores';
 import { montarHoy, mostrarHoy, reiniciarHoy, renderHoy } from './views/hoy';
@@ -13,7 +15,7 @@ import { montarReportes, mostrarReportes, reiniciarReportes } from './views/repo
 import { montarVender, mostrarVender, reiniciarVender, renderVender, teclaVender } from './views/vender';
 
 /** App shell: riel lateral (escritorio), barra inferior (celular), rutas por hash. */
-export type IdVista = 'hoy' | 'vender' | 'cobrar' | 'productos' | 'reportes' | 'ajustes';
+export type IdVista = 'hoy' | 'vender' | 'cobrar' | 'productos' | 'caja' | 'reportes' | 'ajustes';
 
 interface Destino {
   id: IdVista;
@@ -29,11 +31,12 @@ const DESTINOS: Destino[] = [
   { id: 'vender', etiqueta: 'Vender', icono: 'receipt', montar: montarVender, mostrar: mostrarVender, render: renderVender },
   { id: 'cobrar', etiqueta: 'Por cobrar', icono: 'notebook', montar: montarCobrar, mostrar: mostrarCobrar, render: renderCobrar },
   { id: 'productos', etiqueta: 'Productos', icono: 'package', montar: montarProductos, mostrar: mostrarProductos, render: renderProductos },
+  { id: 'caja', etiqueta: 'Caja', icono: 'vault', montar: montarCaja, mostrar: mostrarCaja, render: renderCaja },
   { id: 'reportes', etiqueta: 'Reportes', icono: 'chart', montar: montarReportes, mostrar: mostrarReportes },
   { id: 'ajustes', etiqueta: 'Ajustes', icono: 'settings', montar: montarAjustes, mostrar: mostrarAjustes, render: renderAjustes },
 ];
 
-/** En el celular, Ajustes va arriba a la derecha: la barra inferior tiene 5 destinos. */
+/** En el celular, Caja y Ajustes van arriba a la derecha: la barra inferior tiene 5 destinos. */
 const EN_BARRA_MOVIL: IdVista[] = ['hoy', 'vender', 'cobrar', 'productos', 'reportes'];
 
 let actual: IdVista | null = null;
@@ -49,14 +52,6 @@ function navItem(d: Destino, conInsignia = true): string {
 
 function htmlShell(): string {
   const riel = DESTINOS.filter((d) => d.id !== 'ajustes').map((d) => navItem(d));
-  // Caja: solo existe en la app móvil por ahora. No se inventan pantallas falsas.
-  riel.splice(
-    4,
-    0,
-    `<span class="nav-item" aria-disabled="true" title="La caja está en la app móvil; pronto también aquí">
-      ${icono('vault', 22)}<span>Caja</span><span class="proximamente">Próximamente</span>
-    </span>`,
-  );
   return `
     <a href="#contenido" class="sr-only">Saltar al contenido</a>
     <nav class="riel" aria-label="Secciones">
@@ -71,6 +66,7 @@ function htmlShell(): string {
       <span class="riel-marca" aria-hidden="true">${icono('store', 20)}</span>
       <span class="cabecera-movil-nombre" id="nombre-movil">Bodegón Digital</span>
       <button type="button" class="btn-icono" data-alternar-tema aria-label="Cambiar a modo noche">${icono('moon', 22)}</button>
+      <a class="btn-icono" href="#caja" data-nav="caja" aria-label="Caja">${icono('vault', 22)}</a>
       <a class="btn-icono" href="#ajustes" data-nav="ajustes" aria-label="Ajustes">${icono('settings', 22)}</a>
     </header>
     <main class="contenido" id="contenido" tabindex="-1">
@@ -145,6 +141,7 @@ export function montarShell(): void {
     const sec = $(`vista-${d.id}`);
     if (sec) d.montar(sec);
   }
+  iniciarCajaVivo();
 
   suscribirDatos((e) => {
     pintarComun(e);
@@ -212,6 +209,8 @@ export function salirApp(): void {
   reiniciarHoy();
   reiniciarReportes();
   reiniciarProductos();
+  reiniciarCaja();
+  reiniciarCajaVivo();
   const app = $('app');
   if (app) app.hidden = true;
   actual = null;

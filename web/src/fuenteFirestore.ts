@@ -18,10 +18,13 @@ import { actualizarDatos, type FuenteDatos } from './datos';
 import { auth, db } from './firebase';
 import { registrarListener } from './listeners';
 import { aCliente, aMovimiento, aProducto, aVenta, porNombre } from './mappers';
+import { aCaja, aMovimientoCaja, escrituraCaja } from './mappersCaja';
 import {
+  getCajasCol,
   getClientesCol,
   getConfigNegocioDoc,
   getDeudasCol,
+  getMovimientosCajaCol,
   getProductosCol,
   getVentasCol,
 } from './store';
@@ -62,6 +65,17 @@ export function abrirListenersSesion(alError: (mensaje: string) => void): void {
       (e) => {
         console.error('Error al cargar el cuaderno de fiados:', e);
         alError('No pudimos cargar el cuaderno de fiados. Revisa tu conexión.');
+      },
+    ),
+  );
+  // Caja (D-28): pocas sesiones por usuario. 'estimate': la apertura recién escrita ya tiene hora.
+  registrarListener(
+    onSnapshot(
+      query(getCajasCol()),
+      (s) => actualizarDatos({ cajas: s.docs.map((d) => aCaja(d.id, d.data({ serverTimestamps: 'estimate' }))) }),
+      (e) => {
+        console.error('Error al cargar la caja:', e);
+        alError('No pudimos cargar la caja. Revisa tu conexión.');
       },
     ),
   );
@@ -208,6 +222,53 @@ export const fuenteFirestore: FuenteDatos = {
       cancelarVentas();
       cancelarDeudas();
     };
+  },
+
+  nuevoIdCaja: () => doc(getCajasCol()).id,
+  nuevoIdMovimientoCaja: (cajaId) => doc(getMovimientosCajaCol(cajaId)).id,
+
+  async guardarCaja(op) {
+    // Igual que mobile/src/data/firebase/cajaFirestore.ts: transacción idempotente con el id
+    // generado aquí. `fecha` = serverTimestamp (las reglas exigen request.time) y
+    // `creadaEn` = hora de este equipo (D-26).
+    const w = escrituraCaja(op, serverTimestamp(), Timestamp.fromMillis(op.creadaEn));
+    const cajaRef = doc(getCajasCol(), w.cajaId);
+    await runTransaction(db, async (tx) => {
+      switch (w.tipo) {
+        case 'crear-caja': {
+          if ((await tx.get(cajaRef)).exists()) return; // reintento: ya estaba
+          tx.set(cajaRef, w.datos);
+          return;
+        }
+        case 'crear-movimiento': {
+          const ref = doc(getMovimientosCajaCol(w.cajaId), w.movimientoId);
+          if ((await tx.get(ref)).exists()) return;
+          tx.set(ref, w.datos);
+          return;
+        }
+        case 'cerrar-caja': {
+          const snap = await tx.get(cajaRef);
+          if (!snap.exists()) throw new Error('La caja no existe en el servidor');
+          // Ya cerrada (reintento u otro equipo): las reglas no permiten tocarla otra vez.
+          if (snap.get('estado') === 'cerrada') return;
+          tx.update(cajaRef, w.datos);
+          return;
+        }
+      }
+    });
+  },
+
+  observarMovimientosCaja(cajaId, onDatos, onError) {
+    return registrarListener(
+      onSnapshot(
+        query(getMovimientosCajaCol(cajaId)),
+        (s) => onDatos(s.docs.map((d) => aMovimientoCaja(cajaId, d.id, d.data({ serverTimestamps: 'estimate' })))),
+        (e) => {
+          console.error('Error en listener de movimientos de caja:', e);
+          onError('No pudimos traer los movimientos de la caja. Revisa tu conexión.');
+        },
+      ),
+    );
   },
 
   async cerrarSesion() {

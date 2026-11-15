@@ -5,6 +5,7 @@ import { datos, fuente, type EstadoDatos } from '../datos';
 import { esc, esqueletoFilas, soles } from '../dom';
 import { icono } from '../icons';
 import type { Cancelar } from '../listeners';
+import { lineaHoyCaja, vistaCaja } from '../logic/caja';
 import { fraseComparacion, rangoResumenHoy, resumenHoy } from '../logic/hoy';
 import { fechaLarga } from '../logic/periodos';
 
@@ -121,11 +122,21 @@ function pintar(): void {
       </div>`;
   }
 
+  // Caja (D-28): una línea discreta, nunca compite con "Vender".
+  let caja = '';
+  if (e.cajas) {
+    const v = vistaCaja(e, ahora);
+    caja = v.abierta
+      ? `<a class="hoy-caja" href="#caja">${icono('vault', 18)}<span>${esc(lineaHoyCaja(v.abierta, v.resumen, ahora))}</span>${icono('chevron-right', 16)}</a>`
+      : `<a class="hoy-caja hoy-caja-cerrada" href="#caja">${icono('vault', 18)}<span>Abrir caja</span></a>`;
+  }
+
   cont.innerHTML = `
     <div class="hoy-principal">
       ${principal}
       <button type="button" class="btn btn-primario" data-ir="vender">${icono('receipt', 18)} Vender</button>
     </div>
+    ${caja}
     ${cobrar}
     ${acaban}`;
 }

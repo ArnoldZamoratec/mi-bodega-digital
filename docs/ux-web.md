@@ -60,7 +60,7 @@ No es una plantilla de SaaS verde. Usa los materiales del mundo del bodeguero:
   - Derecha: el formulario.
   - Errores en lenguaje humano ("Esa contraseña no coincide. ¿La recuperamos?").
 
-\* Caja en la web puede quedar como "Próximamente" si no entra en esta iteración. No se inventan pantallas falsas.
+\* Caja (D-28) ya está en la web, con paridad con la app: abrir con el sencillo (atajos 20/50/100/200), "Debería haber S/ X" con desglose, ingresos y egresos con motivo, cierre en un panel de la página con ayuda para contar billetes y monedas, e historial de cierres. El ladrillo solo aparece con un faltante de más de S/ 1. En el celular se llega desde el ícono de la cabecera y desde la línea de Hoy. Escribe en línea (como las ventas), con transacciones idempotentes.
 
 ## 4. Estados e interacción
 
