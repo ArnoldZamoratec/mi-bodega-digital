@@ -133,6 +133,15 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
             onPress={() => setSoloDeuda(!soloDeuda)}
             icono="alert-circle-outline"
           />
+          {/* D-27: a quién cobrar primero, con recordatorio por WhatsApp. */}
+          <ChipHero
+            etiqueta="Cobranza"
+            activo={false}
+            onPress={() => navigation.navigate('Cobranza')}
+            icono="cash-clock"
+            testID="ir-cobranza"
+            accessibilityLabel="Abrir cobranza: clientes por cobrar y recordatorios"
+          />
         </FiltrosHero>
       </EncabezadoHero>
       <BannerConexion onPress={() => navigation.navigate('VentasPendientes')} />

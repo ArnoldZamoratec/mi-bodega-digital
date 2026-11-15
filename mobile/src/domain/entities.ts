@@ -28,9 +28,11 @@ export interface Cliente {
   id: string;
   nombre: string;
   telefono: string;
+  /** Aditivo (móvil, D-27): último recordatorio de cobro enviado por WhatsApp. */
+  ultimoRecordatorio?: Date;
 }
 
-export type ClienteDatos = Omit<Cliente, 'id'>;
+export type ClienteDatos = Omit<Cliente, 'id' | 'ultimoRecordatorio'>;
 
 export interface ItemVenta {
   id: string;

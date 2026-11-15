@@ -113,6 +113,16 @@ export function AjustesScreen({ navigation }: PantallaTab<'Ajustes'>) {
           <List.Item
             titleNumberOfLines={3}
             descriptionNumberOfLines={3}
+            title="Caja"
+            description="Abre y cierra tu caja: cuánto efectivo debería haber"
+            left={() => <IconoFila nombre="cash-register" />}
+            right={(p) => <List.Icon {...p} icon="chevron-right" />}
+            onPress={() => navigation.navigate('Caja')}
+            testID="ajustes-caja"
+          />
+          <List.Item
+            titleNumberOfLines={3}
+            descriptionNumberOfLines={3}
             title="Datos del negocio"
             description={
               [config.ruc && `RUC ${config.ruc}`, config.direccion].filter(Boolean).join(' · ') ||

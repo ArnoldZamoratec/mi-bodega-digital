@@ -10,6 +10,8 @@ import { useTema } from '../hooks/useDerivados';
 import { useReducirMovimiento } from '../hooks/useReducirMovimiento';
 import { AjustesScreen } from '../screens/ajustes/AjustesScreen';
 import { DatosNegocioScreen } from '../screens/ajustes/DatosNegocioScreen';
+import { CajaScreen } from '../screens/caja/CajaScreen';
+import { CobranzaScreen } from '../screens/fiado/CobranzaScreen';
 import { HistorialVentasScreen } from '../screens/ventas/HistorialVentasScreen';
 import { VentasPendientesScreen } from '../screens/ajustes/VentasPendientesScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -170,6 +172,8 @@ export function Navegacion() {
             component={HistorialVentasScreen}
             options={{ title: 'Ventas' }}
           />
+          <Pila.Screen name="Cobranza" component={CobranzaScreen} options={{ title: 'Cobranza' }} />
+          <Pila.Screen name="Caja" component={CajaScreen} options={{ title: 'Caja' }} />
           <Pila.Screen
             name="DatosNegocio"
             component={DatosNegocioScreen}

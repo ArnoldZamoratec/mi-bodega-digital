@@ -53,7 +53,7 @@ const aError = (e: unknown): Error => (e instanceof Error ? e : new Error(String
  * que llegue el servidor, la UI usa `CacheCatalogo`. Ya confirmada, la caché en memoria
  * está completa y sí se usa sin red.
  */
-function escucharConfirmado<T>(
+export function escucharConfirmado<T>(
   consulta: Query<DocumentData>,
   fn: (id: string, d: DocumentData) => T,
   onDatos: (datos: T[]) => void,

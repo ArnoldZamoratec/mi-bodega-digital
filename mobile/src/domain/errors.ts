@@ -8,7 +8,10 @@ export type CodigoErrorDominio =
   | 'RANGO_FECHAS_INVALIDO'
   | 'SIN_DEUDA_PENDIENTE'
   | 'NO_SE_ANULA_ANULACION'
-  | 'VENTA_YA_ANULADA';
+  | 'VENTA_YA_ANULADA'
+  | 'CAJA_YA_ABIERTA'
+  | 'CAJA_NO_ABIERTA'
+  | 'MOTIVO_VACIO';
 
 const MENSAJES: Record<CodigoErrorDominio, string> = {
   CARRITO_VACIO: 'El carrito está vacío',
@@ -21,6 +24,9 @@ const MENSAJES: Record<CodigoErrorDominio, string> = {
   SIN_DEUDA_PENDIENTE: 'El cliente no tiene deuda pendiente',
   NO_SE_ANULA_ANULACION: 'Una anulación no se puede anular',
   VENTA_YA_ANULADA: 'Esta venta ya fue anulada',
+  CAJA_YA_ABIERTA: 'Ya tienes una caja abierta. Ciérrala antes de abrir otra.',
+  CAJA_NO_ABIERTA: 'No hay una caja abierta. Abre la caja para registrar movimientos.',
+  MOTIVO_VACIO: 'Escribe el motivo (por ejemplo: pago al proveedor)',
 };
 
 /** Error de regla de negocio: siempre tiene un mensaje apto para mostrar al usuario. */

@@ -24,6 +24,10 @@ export type RaizParams = {
   DatosNegocio: undefined;
   /** Historial de ventas con anulación. */
   HistorialVentas: undefined;
+  /** Clientes con saldo, del que debe hace más tiempo al más reciente (D-27). */
+  Cobranza: undefined;
+  /** Apertura, ingresos/egresos y cierre de caja con arqueo (D-28). */
+  Caja: undefined;
 };
 
 export type PantallaRaiz<T extends keyof RaizParams> = NativeStackScreenProps<RaizParams, T>;

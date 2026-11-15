@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { Contenedor } from '@/data/contenedor';
 import { mensajeDeError } from '@/data/firebase/errores';
+import { revivirCliente } from '@/data/mappers';
 import {
   CONFIG_NEGOCIO_POR_DEFECTO,
   type Cliente,
@@ -84,7 +85,14 @@ export const useDatos = create<DatosStore>((set, get) => ({
         set({ productos: { datos: productos, cargando: false, error: null, desdeCache: true } });
       }
       if (clientes && get().clientes.cargando) {
-        set({ clientes: { datos: clientes, cargando: false, error: null, desdeCache: true } });
+        set({
+          clientes: {
+            datos: clientes.map(revivirCliente),
+            cargando: false,
+            error: null,
+            desdeCache: true,
+          },
+        });
       }
     })();
 
