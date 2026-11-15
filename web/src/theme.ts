@@ -1,9 +1,12 @@
 // Theme Management for Mi Bodega Digital
 // Handles dark/light mode toggle and persistence
+// Nota: no se usaba en la v5.3 (index.html no tiene #theme-toggle ni carga dark-mode.css).
+// Se conserva tipado para reactivarlo; main.ts no lo llama.
 
-export function initTheme() {
-    const themeToggle = document.getElementById('theme-toggle');
-    if (!themeToggle) return;
+export function initTheme(): void {
+    const boton = document.getElementById('theme-toggle');
+    if (!boton) return;
+    const themeToggle: HTMLElement = boton;
 
     const root = document.documentElement;
 
@@ -18,7 +21,7 @@ export function initTheme() {
         setTheme(newTheme);
     });
 
-    function setTheme(theme) {
+    function setTheme(theme: string): void {
         root.setAttribute('data-theme', theme);
         localStorage.setItem('bodega-theme', theme);
 

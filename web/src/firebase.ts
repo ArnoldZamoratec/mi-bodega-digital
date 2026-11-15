@@ -1,89 +1,24 @@
-// js/firebase.js
+// Firebase por npm (antes: SDK 11.6.1 desde el CDN de gstatic). Misma versión que la app móvil.
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// Importar funciones de Firebase
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-
-import {
-    getAuth,
-    onAuthStateChanged,
-    signInWithEmailAndPassword, // <-- Herramienta para "Ingresar"
-    createUserWithEmailAndPassword, // <-- NUEVO: Para crear cuentas
-    signInWithPopup, // <-- Para login con Google
-    GoogleAuthProvider, // <-- Proveedor de Google
-    signOut, // <-- Herramienta para "Salir"
-    setPersistence, // <-- HERRAMIENTA CORREGIDA
-    browserLocalPersistence // <-- HERRAMIENTA CORREGIDA
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    onSnapshot,
-    collection,
-    query,
-    where,
-    serverTimestamp,
-    Timestamp,
-    runTransaction,
-    increment,
-    getDocs
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-// --- Configuración de Firebase ---
-// Nueva configuración del proyecto "bodega-difital"
+// --- Configuración de Firebase (proyecto "bodega-difital") ---
+// Estos valores son públicos por diseño: la seguridad la dan las reglas de Firestore.
 const firebaseConfig = {
-    apiKey: "AIzaSyCelSZbt81Knw1sZLMZR9wNgi-7XWRwUpQ",
-    authDomain: "bodega-difital.firebaseapp.com",
-    projectId: "bodega-difital",
-    storageBucket: "bodega-difital.firebasestorage.app",
-    messagingSenderId: "319605782287",
-    appId: "1:319605782287:web:084c12037b794d5226f07a",
-    measurementId: "G-H40MNY2KR9"
+  apiKey: 'AIzaSyCelSZbt81Knw1sZLMZR9wNgi-7XWRwUpQ',
+  authDomain: 'bodega-difital.firebaseapp.com',
+  projectId: 'bodega-difital',
+  storageBucket: 'bodega-difital.firebasestorage.app',
+  messagingSenderId: '319605782287',
+  appId: '1:319605782287:web:084c12037b794d5226f07a',
+  measurementId: 'G-H40MNY2KR9',
 };
 
-
 // --- Constantes de la App ---
-const appId = 'mi-bodega-app';
-const initialAuthToken = null;
+export const appId = 'mi-bodega-app';
 
 // --- Inicialización ---
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app); // <-- Forma estándar
-
-// --- Exportar servicios ---
-export { db, auth, appId, initialAuthToken };
-
-// --- Re-exportar funciones para conveniencia ---
-export {
-    // Auth
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, // <-- EXPORTAMOS PARA REGISTRO
-    signInWithPopup, // <-- EXPORTAMOS PARA GOOGLE
-    GoogleAuthProvider, // <-- EXPORTAMOS PROVEEDOR
-    signOut,
-    setPersistence, // <-- EXPORTAMOS LA HERRAMIENTA
-    browserLocalPersistence, // <-- EXPORTAMOS LA HERRAMIENTA
-
-    // Firestore
-    doc,
-    getDoc,
-    setDoc,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    onSnapshot,
-    collection,
-    query,
-    where,
-    serverTimestamp,
-    Timestamp,
-    runTransaction,
-    increment,
-    getDocs
-};
+export const db = getFirestore(app);
+export const auth = getAuth(app);

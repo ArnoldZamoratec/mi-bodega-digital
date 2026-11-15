@@ -1,287 +1,260 @@
 import {
-    onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, getDoc, where, serverTimestamp
-} from '../firebase.js?v=5.3'; // MODIFICADO
+  armarAbono,
+  armarCargo,
+  armarLiquidacion,
+  ErrorDominio,
+  parsearSoles,
+  saldosPorCliente,
+  type Cliente,
+  type MetodoPagoAbono,
+  type MovimientoFiado,
+} from '@bodegon/core';
 import {
-    getClientesCol,
-    getDeudasCol,
-    setDeudasPendientes,
-    getEditingClienteId,
-    setEditingClienteId
-} from '../store.js?v=5.3'; // MODIFICADO
+  addDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
+
+import { registrarListener } from '../listeners';
+import { aCliente, aMovimiento, porNombre } from '../mappers';
 import {
-    showToast,
-    renderClientesFiado,
-    renderClientesParaVenta,
-    showClienteDetalleModalUI,
-    renderHistorialCliente,
-    hideClienteModal,
-    resetDeudaForm,
-    resetPagoForm,
-    showClienteModal
-} from '../ui.js?v=5.3'; // MODIFICADO
+  getClientesCol,
+  getConfigNegocioDoc,
+  getDeudasCol,
+  getEditingClienteId,
+  setEditingClienteId,
+  setNombreBodega,
+} from '../store';
+import {
+  hideClienteModal,
+  isClienteDetalleVisible,
+  renderClientesFiado,
+  renderClientesParaVenta,
+  renderHistorialCliente,
+  resetDeudaForm,
+  resetPagoForm,
+  showClienteDetalleModalUI,
+  showToast,
+  type ClienteConSaldo,
+} from '../ui';
 
-let unsubClienteDetalle = null;
-let currentClienteData = null;
+// Un listener para clientes y UNO para todo el libro de fiado (B-05: antes se abría un
+// onSnapshot de deudas por cliente en cada cambio y nunca se cerraban).
+let clientes: Cliente[] = [];
+let movimientos: MovimientoFiado[] = [];
+let currentClienteId: string | null = null;
 
-export const getCurrentClienteData = () => currentClienteData;
+export const getCurrentClienteData = (): Cliente | null =>
+  clientes.find((c) => c.id === currentClienteId) ?? null;
+
+const movimientosDe = (clienteId: string): MovimientoFiado[] =>
+  movimientos.filter((m) => m.clienteId === clienteId);
+
+/** Clientes + saldo (fórmula del core, la misma que la app móvil), ordenados por nombre. */
+export function clientesConSaldo(
+  lista: readonly Cliente[],
+  libro: readonly MovimientoFiado[],
+): ClienteConSaldo[] {
+  const saldos = saldosPorCliente(libro);
+  return lista.map((c) => ({ ...c, saldoTotal: saldos.get(c.id) ?? 0 })).sort(porNombre);
+}
+
+function renderTodo(): void {
+  renderClientesFiado(clientesConSaldo(clientes, movimientos), showClienteDetalleModal);
+  renderClientesParaVenta(clientes);
+  renderDetalleAbierto();
+}
+
+function renderDetalleAbierto(): void {
+  const cliente = getCurrentClienteData();
+  if (!cliente || !isClienteDetalleVisible()) return;
+  renderHistorialCliente(cliente, movimientosDe(cliente.id));
+}
+
+/** Clientes (pestaña Fiado y selector del POS), libro de fiado y nombre de la bodega. */
+export function loadClientes(): void {
+  registrarListener(
+    onSnapshot(
+      query(getClientesCol()),
+      (snapshot) => {
+        clientes = snapshot.docs.map((d) => aCliente(d.id, d.data())).sort(porNombre);
+        renderTodo();
+      },
+      (error) => {
+        console.error('Error al cargar clientes: ', error);
+        showToast('Error al cargar clientes', true);
+      },
+    ),
+  );
+
+  registrarListener(
+    onSnapshot(
+      query(getDeudasCol()),
+      (snapshot) => {
+        // 'estimate': un movimiento recién escrito ya tiene fecha (y su lugar en el historial).
+        movimientos = snapshot.docs.map((d) =>
+          aMovimiento(d.id, d.data({ serverTimestamps: 'estimate' })),
+        );
+        renderTodo();
+      },
+      (error) => {
+        console.error('Error al cargar historial: ', error);
+        showToast('Error al cargar historial', true);
+      },
+    ),
+  );
+
+  // config/negocio (lo crea la app móvil): solo para firmar el recordatorio de WhatsApp.
+  registrarListener(
+    onSnapshot(
+      getConfigNegocioDoc(),
+      (snap) => {
+        const nombre = snap.exists() ? snap.data().nombre : null;
+        setNombreBodega(typeof nombre === 'string' && nombre.trim() ? nombre : null);
+        renderDetalleAbierto();
+      },
+      () => setNombreBodega(null), // Sin config: "tu bodega".
+    ),
+  );
+}
+
+/** Al cerrar sesión. */
+export function resetClientes(): void {
+  clientes = [];
+  movimientos = [];
+  currentClienteId = null;
+}
+
+/** Formulario de Añadir/Editar Cliente. */
+export async function handleClienteFormSubmit(e: Event): Promise<void> {
+  e.preventDefault();
+  const valor = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+  const cliente = { nombre: valor('cliente-nombre'), telefono: valor('cliente-telefono') };
+  const currentEditingClienteId = getEditingClienteId();
+
+  try {
+    if (currentEditingClienteId) {
+      await updateDoc(doc(getClientesCol(), currentEditingClienteId), cliente);
+    } else {
+      await addDoc(getClientesCol(), cliente);
+    }
+    hideClienteModal();
+    setEditingClienteId(null);
+  } catch (error) {
+    console.error('Error al guardar cliente: ', error);
+    showToast('Error al guardar cliente', true);
+  }
+}
+
+/** Muestra el modal de detalle del cliente con su historial (en vivo, del listener común). */
+export function showClienteDetalleModal(clienteId: string): void {
+  const cliente = clientes.find((c) => c.id === clienteId);
+  if (!cliente) {
+    showToast('No se encontró el cliente', true);
+    return;
+  }
+  currentClienteId = clienteId;
+  showClienteDetalleModalUI(cliente);
+  renderHistorialCliente(cliente, movimientosDe(clienteId));
+}
+
+const metodoPagoSeleccionado = (): MetodoPagoAbono =>
+  ((document.getElementById('pago-metodo') as HTMLSelectElement | null)?.value ||
+    'Efectivo') as MetodoPagoAbono;
+
+const mensaje = (error: unknown, porDefecto: string): string =>
+  error instanceof ErrorDominio ? error.message : porDefecto;
 
 /**
- * Carga la lista de clientes en la pestaña Fiado
+ * "Pagar" (B-02): registra un abono REAL por lo que falta del cargo (FIFO del core), así el
+ * dinero entra al reporte de ingresos. No marca `pagado` (B-01).
  */
-export function loadClientesFiado() {
-    const q = query(getClientesCol());
-
-    onSnapshot(q, (snapshot) => {
-        const clientesPromises = [];
-        snapshot.forEach(doc => {
-            clientesPromises.push(async () => {
-                const cliente = { id: doc.id, ...doc.data() };
-
-                const qDeudas = query(getDeudasCol(), where("clienteId", "==", cliente.id));
-
-                let totalDeuda = 0;
-                onSnapshot(qDeudas, (deudasSnapshot) => {
-                    totalDeuda = 0;
-                    deudasSnapshot.forEach(deudaDoc => {
-                        const deuda = deudaDoc.data();
-                        if (deuda.monto < 0) {
-                            totalDeuda += deuda.monto;
-                        } else if (deuda.monto > 0 && deuda.pagado !== true) {
-                            totalDeuda += deuda.monto;
-                        }
-                    });
-
-                    const totalEl = document.getElementById(`deuda-total-${cliente.id}`);
-                    if (totalEl) {
-                        totalEl.textContent = `S/ ${totalDeuda.toFixed(2)}`;
-                        totalEl.classList.toggle('text-red-500', totalDeuda > 0);
-                        totalEl.classList.toggle('text-green-600', totalDeuda < 0);
-                        totalEl.classList.toggle('text-gray-500', totalDeuda === 0);
-                    }
-                });
-
-                return { ...cliente, saldoTotal: totalDeuda };
-            });
-        });
-
-        Promise.all(clientesPromises.map(f => f())).then(clientes => {
-            clientes.sort((a, b) => a.nombre.localeCompare(b.nombre));
-            renderClientesFiado(clientes, showClienteDetalleModal);
-        });
-
-    }, (error) => {
-        console.error("Error al cargar clientes: ", error);
-        showToast("Error al cargar clientes", true);
-    });
+async function handleMarkAsPaid(id: string): Promise<void> {
+  const cargo = movimientos.find((m) => m.id === id);
+  if (!cargo) return;
+  try {
+    const abono = armarLiquidacion(movimientosDe(cargo.clienteId), id, metodoPagoSeleccionado());
+    await addDoc(getDeudasCol(), { ...abono, fecha: serverTimestamp() });
+  } catch (error) {
+    console.error('Error al marcar como pagado:', error);
+    showToast(mensaje(error, 'Error al actualizar deuda'), true);
+  }
 }
 
-/**
- * Carga los clientes en el dropdown de la pestaña "Vender".
- */
-export function loadClientesParaVenta() {
-    const q = query(getClientesCol());
-
-    onSnapshot(q, (snapshot) => {
-        const clientes = [];
-        snapshot.forEach(doc => {
-            clientes.push({ id: doc.id, ...doc.data() });
-        });
-        clientes.sort((a, b) => a.nombre.localeCompare(b.nombre));
-        renderClientesParaVenta(clientes);
-    }, (error) => {
-        console.error("Error al cargar clientes para venta: ", error);
-    });
+async function handleDeleteHistoryEntry(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(getDeudasCol(), id));
+  } catch (error) {
+    console.error('Error al eliminar registro:', error);
+    showToast('Error al eliminar', true);
+  }
 }
 
-/**
- * Handler para el formulario de Añadir/Editar Cliente.
- */
-export async function handleClienteFormSubmit(e) {
-    e.preventDefault();
-    const nombre = document.getElementById('cliente-nombre').value;
-    const telefono = document.getElementById('cliente-telefono').value;
-    const currentEditingClienteId = getEditingClienteId();
+export function handleHistorialClick(e: Event): void {
+  const target = e.target as Element | null;
+  const markPaidBtn = target?.closest<HTMLElement>('.marcar-pagado-btn');
+  if (markPaidBtn?.dataset.id) {
+    void handleMarkAsPaid(markPaidBtn.dataset.id);
+    return;
+  }
 
-    const cliente = { nombre, telefono };
-
-    try {
-        if (currentEditingClienteId) {
-            const docRef = doc(getClientesCol(), currentEditingClienteId);
-            await updateDoc(docRef, cliente);
-            // Toast removed - modal closes, list updates
-        } else {
-            await addDoc(getClientesCol(), cliente);
-            // Toast removed - modal closes, new client appears
-        }
-        hideClienteModal();
-        setEditingClienteId(null);
-    } catch (error) {
-        console.error("Error al guardar cliente: ", error);
-        showToast("Error al guardar cliente", true);
+  const deleteBtn = target?.closest<HTMLElement>('.eliminar-deuda-btn');
+  if (deleteBtn?.dataset.id) {
+    if (confirm('¿Seguro que quieres eliminar este registro?')) {
+      void handleDeleteHistoryEntry(deleteBtn.dataset.id);
     }
+  }
 }
 
-/**
- * Muestra el modal de detalle del cliente y carga su historial.
- */
-export async function showClienteDetalleModal(clienteId) {
-    if (unsubClienteDetalle) {
-        unsubClienteDetalle();
-    }
+const valorInput = (id: string): string =>
+  (document.getElementById(id) as HTMLInputElement | null)?.value ?? '';
 
-    const docRef = doc(getClientesCol(), clienteId);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) {
-        showToast("No se encontró el cliente", true);
-        return;
-    }
-    const cliente = docSnap.data();
-    currentClienteData = { id: clienteId, ...cliente };
+export async function handleDeudaFormSubmit(e: Event): Promise<void> {
+  e.preventDefault();
+  const clienteId = valorInput('deuda-cliente-id');
+  const monto = parsearSoles(valorInput('deuda-monto'));
+  const descripcion = valorInput('deuda-descripcion');
 
-    showClienteDetalleModalUI({ id: clienteId, ...cliente });
+  if (!monto || !descripcion || !clienteId) {
+    showToast('Completa todos los campos de deuda', true);
+    return;
+  }
 
-    const qDeudas = query(getDeudasCol(), where("clienteId", "==", clienteId));
-
-    unsubClienteDetalle = onSnapshot(qDeudas, (snapshot) => {
-        let saldoTotal = 0;
-        let historial = [];
-        let deudasPendientes = [];
-
-        snapshot.forEach(doc => {
-            historial.push({ id: doc.id, ...doc.data() });
-        });
-
-        historial.sort((a, b) => (a.fecha?.toMillis() || 0) - (b.fecha?.toMillis() || 0));
-
-        historial.forEach(item => {
-            if (item.monto < 0) {
-                saldoTotal += item.monto;
-            } else if (item.monto > 0 && item.pagado !== true) {
-                saldoTotal += item.monto;
-                deudasPendientes.push(item);
-            }
-        });
-
-        setDeudasPendientes(deudasPendientes);
-        renderHistorialCliente(historial, saldoTotal, handleMarkAsPaid, handleDeleteHistoryEntry);
-
-    }, (error) => {
-        console.error("Error al cargar historial: ", error);
-        showToast("Error al cargar historial", true);
-    });
+  try {
+    // Core: monto > 0 en céntimos exactos, descripción no vacía.
+    const cargo = armarCargo(clienteId, monto, descripcion);
+    await addDoc(getDeudasCol(), { ...cargo, fecha: serverTimestamp() });
+    resetDeudaForm();
+  } catch (error) {
+    console.error('Error al añadir deuda:', error);
+    showToast(mensaje(error, 'Error al añadir deuda'), true);
+  }
 }
 
-// --- Handlers Internos ---
-async function handleMarkAsPaid(id) {
-    // B-02: "Pagar" registra un abono real (monto negativo) por el valor del cargo, así el dinero
-    // entra al reporte de ingresos. No se marca pagado: el abono ya compensa el cargo (saldo neto 0).
-    try {
-        const deudaRef = doc(getDeudasCol(), id);
-        const snap = await getDoc(deudaRef);
-        if (!snap.exists()) return;
-        const deuda = snap.data();
-        const metodoPago = document.getElementById('pago-metodo')?.value || 'Efectivo';
-        await addDoc(getDeudasCol(), {
-            clienteId: deuda.clienteId,
-            monto: -Math.abs(deuda.monto),
-            descripcion: `Pago de: ${deuda.descripcion}`,
-            fecha: serverTimestamp(),
-            pagado: false,
-            metodoPago
-        });
-        // Toast removed - debt status changes visually
-    } catch (error) {
-        console.error("Error al marcar como pagado:", error);
-        showToast("Error al actualizar deuda", true);
-    }
-}
+export async function handlePagoFormSubmit(e: Event): Promise<void> {
+  e.preventDefault();
+  const clienteId = valorInput('pago-cliente-id');
+  const monto = parsearSoles(valorInput('pago-monto'));
+  const descripcion = valorInput('pago-descripcion');
+  const deudaOrigenId = valorInput('pago-deuda-origen-id') || undefined;
 
-async function handleDeleteHistoryEntry(id) {
-    try {
-        await deleteDoc(doc(getDeudasCol(), id));
-        // Toast removed - record disappears from list
-    } catch (error) {
-        console.error("Error al eliminar registro:", error);
-        showToast("Error al eliminar", true);
-    }
-}
+  if (!monto || !descripcion || !clienteId) {
+    showToast('Completa todos los campos de pago', true);
+    return;
+  }
 
-// --- Handlers Exportados (AQUÍ ESTABA EL ERROR) ---
-
-export function handleHistorialClick(e) {
-    const markPaidBtn = e.target.closest('.marcar-pagado-btn');
-    if (markPaidBtn) {
-        handleMarkAsPaid(markPaidBtn.dataset.id);
-        return;
-    }
-
-    const deleteBtn = e.target.closest('.eliminar-deuda-btn');
-    if (deleteBtn) {
-        if (confirm("¿Seguro que quieres eliminar este registro?")) {
-            handleDeleteHistoryEntry(deleteBtn.dataset.id);
-        }
-        return;
-    }
-}
-
-export async function handleDeudaFormSubmit(e) {
-    e.preventDefault();
-    const clienteId = document.getElementById('deuda-cliente-id').value;
-    const monto = parseFloat(document.getElementById('deuda-monto').value);
-    const descripcion = document.getElementById('deuda-descripcion').value;
-
-    if (!monto || !descripcion || !clienteId) {
-        showToast("Completa todos los campos de deuda", true);
-        return;
-    }
-
-    try {
-        await addDoc(getDeudasCol(), {
-            clienteId,
-            monto,
-            descripcion,
-            fecha: serverTimestamp(),
-            pagado: false
-        });
-        // Toast removed - new debt appears in history
-        resetDeudaForm();
-    } catch (error) {
-        console.error("Error al añadir deuda:", error);
-        showToast("Error al añadir deuda", true);
-    }
-}
-
-export async function handlePagoFormSubmit(e) {
-    e.preventDefault();
-    const clienteId = document.getElementById('pago-cliente-id').value;
-    const monto = parseFloat(document.getElementById('pago-monto').value);
-    const descripcion = document.getElementById('pago-descripcion').value;
-    const metodoPago = document.getElementById('pago-metodo').value;
-    const deudaOrigenId = document.getElementById('pago-deuda-origen-id').value;
-
-    if (!monto || !descripcion || !clienteId) {
-        showToast("Completa todos los campos de pago", true);
-        return;
-    }
-
-    try {
-        await addDoc(getDeudasCol(), {
-            clienteId,
-            monto: -Math.abs(monto),
-            descripcion,
-            fecha: serverTimestamp(),
-            pagado: false,
-            metodoPago: metodoPago
-        });
-
-        // B-01: NO se marca el cargo origen como pagado; el abono negativo ya reduce el saldo.
-        // (Marcarlo pagado restaba el monto dos veces.) Mismo criterio que la app móvil.
-
-        // Toast removed - payment appears in history, debt updates
-        resetPagoForm();
-
-    } catch (error) {
-        console.error("Error al registrar pago:", error);
-        showToast("Error al registrar pago", true);
-    }
+  try {
+    // Abono negativo (-|monto|). B-01: NO se marca el cargo origen como pagado; el abono
+    // ya reduce el saldo (marcarlo pagado lo restaba dos veces). Mismo criterio que la móvil.
+    const abono = armarAbono(clienteId, monto, descripcion, metodoPagoSeleccionado(), deudaOrigenId);
+    await addDoc(getDeudasCol(), { ...abono, fecha: serverTimestamp() });
+    resetPagoForm();
+  } catch (error) {
+    console.error('Error al registrar pago:', error);
+    showToast(mensaje(error, 'Error al registrar pago'), true);
+  }
 }

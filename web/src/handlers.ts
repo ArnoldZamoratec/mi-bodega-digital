@@ -1,86 +1,77 @@
-import {
-    showProductoModal,
-    hideProductoModal,
-    showClienteModal,
-    hideClienteModal,
-    hideClienteDetalleModal,
-    toggleClienteFiadoSelect,
-    setupTabs
-} from './ui.js?v=5.3';
+import { hoyLima } from '@bodegon/core';
 
 import {
-    handleVentaFormSubmit,
-    handleCartClick,
-    filterAndRenderVentaRapida
-} from './modules/pos.js?v=5.3';
-
+  getCurrentClienteData,
+  handleClienteFormSubmit,
+  handleDeudaFormSubmit,
+  handleHistorialClick,
+  handlePagoFormSubmit,
+} from './modules/clients';
+import { handleProductoFormSubmit } from './modules/inventory';
+import { filterAndRenderVentaRapida, handleCartClick, handleVentaFormSubmit } from './modules/pos';
 import {
-    handleProductoFormSubmit
-} from './modules/inventory.js?v=5.3';
-
+  handleReporteDateChange,
+  handleReporteRefreshClick,
+  loadReporteDelDia,
+} from './modules/reports';
 import {
-    handleClienteFormSubmit,
-    handleDeudaFormSubmit,
-    handlePagoFormSubmit,
-    handleHistorialClick,
-    getCurrentClienteData
-} from './modules/clients.js?v=5.3';
+  hideClienteDetalleModal,
+  hideClienteModal,
+  hideProductoModal,
+  setupTabs,
+  showClienteModal,
+  showProductoModal,
+  toggleClienteFiadoSelect,
+} from './ui';
 
-import {
-    handleReporteDateChange,
-    handleReporteRefreshClick
-} from './modules/reports.js?v=5.3';
+const on = (id: string, evento: string, fn: (e: Event) => unknown): void => {
+  document.getElementById(id)?.addEventListener(evento, fn as EventListener);
+};
 
-export function setupEventListeners() {
-    // Navegación de Pestañas
-    setupTabs();
+export function setupEventListeners(): void {
+  // Navegación de Pestañas
+  setupTabs(loadReporteDelDia);
 
-    // --- Pestaña Vender (POS) ---
-    const searchBar = document.getElementById('search-bar');
-    if (searchBar) {
-        searchBar.addEventListener('input', filterAndRenderVentaRapida);
+  // --- Pestaña Vender (POS) ---
+  on('search-bar', 'input', filterAndRenderVentaRapida);
+  on('cart-items', 'click', handleCartClick);
+  on('venta-form', 'submit', (e) => handleVentaFormSubmit(e as SubmitEvent));
+  on('venta-metodo-pago', 'change', toggleClienteFiadoSelect);
+
+  // --- Pestaña Inventario (Modal Producto) ---
+  on('show-producto-form-btn', 'click', () => showProductoModal(null));
+  on('close-producto-modal-btn', 'click', hideProductoModal);
+  on('producto-form', 'submit', handleProductoFormSubmit);
+
+  // --- Pestaña Fiado (Modal Cliente) ---
+  on('show-cliente-form-btn', 'click', () => showClienteModal(null));
+  on('close-cliente-modal-btn', 'click', hideClienteModal);
+  on('cliente-form', 'submit', handleClienteFormSubmit);
+
+  // --- Modal Detalle Cliente ---
+  on('close-cliente-detalle-modal-btn', 'click', hideClienteDetalleModal);
+  on('deuda-form', 'submit', handleDeudaFormSubmit);
+  on('pago-form', 'submit', handlePagoFormSubmit);
+  on('cliente-detalle-historial', 'click', handleHistorialClick);
+  on('edit-cliente-btn', 'click', () => {
+    const cliente = getCurrentClienteData();
+    if (cliente) {
+      hideClienteDetalleModal();
+      showClienteModal(cliente);
     }
+  });
+  // "Recordar por WhatsApp" es un <a href="https://wa.me/..."> que arma ui.ts con el core.
 
-    document.getElementById('cart-items').addEventListener('click', handleCartClick);
-    document.getElementById('venta-form').addEventListener('submit', handleVentaFormSubmit);
-    document.getElementById('venta-metodo-pago').addEventListener('change', toggleClienteFiadoSelect);
-
-    // --- Pestaña Inventario (Modal Producto) ---
-    document.getElementById('show-producto-form-btn').addEventListener('click', () => showProductoModal(null));
-    document.getElementById('close-producto-modal-btn').addEventListener('click', hideProductoModal);
-    document.getElementById('producto-form').addEventListener('submit', handleProductoFormSubmit);
-
-    // --- Pestaña Fiado (Modal Cliente) ---
-    document.getElementById('show-cliente-form-btn').addEventListener('click', () => showClienteModal(null));
-    document.getElementById('close-cliente-modal-btn').addEventListener('click', hideClienteModal);
-    document.getElementById('cliente-form').addEventListener('submit', handleClienteFormSubmit);
-
-    // --- Modal Detalle Cliente ---
-    document.getElementById('close-cliente-detalle-modal-btn').addEventListener('click', hideClienteDetalleModal);
-    document.getElementById('deuda-form').addEventListener('submit', handleDeudaFormSubmit);
-    document.getElementById('pago-form').addEventListener('submit', handlePagoFormSubmit);
-    document.getElementById('cliente-detalle-historial').addEventListener('click', handleHistorialClick);
-    document.getElementById('edit-cliente-btn').addEventListener('click', () => {
-        const cliente = getCurrentClienteData();
-        if (cliente) {
-            hideClienteDetalleModal();
-            showClienteModal(cliente);
-        }
-    });
-
-    // --- Pestaña Reportes ---
-    const reporteFechaInicioInput = document.getElementById('reporte-fecha-inicio');
-    const reporteFechaFinInput = document.getElementById('reporte-fecha-fin');
-    const actualizarReporteBtn = document.getElementById('actualizar-reporte-btn');
-
-    if (reporteFechaInicioInput && reporteFechaFinInput && actualizarReporteBtn) {
-        // Fecha de hoy en hora de Perú (valueAsDate usa UTC y después de las 19:00 marcaba "mañana")
-        const hoyLima = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
-        reporteFechaInicioInput.value = hoyLima;
-        reporteFechaFinInput.value = hoyLima;
-
-        reporteFechaInicioInput.addEventListener('change', handleReporteDateChange);
-        reporteFechaFinInput.addEventListener('change', handleReporteDateChange);
-        actualizarReporteBtn.addEventListener('click', handleReporteRefreshClick);
-    }
+  // --- Pestaña Reportes ---
+  const inicio = document.getElementById('reporte-fecha-inicio') as HTMLInputElement | null;
+  const fin = document.getElementById('reporte-fecha-fin') as HTMLInputElement | null;
+  if (inicio && fin) {
+    // Hoy en hora de Perú (valueAsDate usa UTC y después de las 19:00 marcaba "mañana").
+    const hoy = hoyLima();
+    inicio.value = hoy;
+    fin.value = hoy;
+    inicio.addEventListener('change', handleReporteDateChange);
+    fin.addEventListener('change', handleReporteDateChange);
+    on('actualizar-reporte-btn', 'click', handleReporteRefreshClick);
+  }
 }

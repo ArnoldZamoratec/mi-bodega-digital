@@ -5,13 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Bodega Digital</title>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="description" content="Punto de venta, inventario, fiado y reportes para tu bodega.">
+    <meta name="theme-color" content="#059669">
+    <link rel="icon" type="image/png" href="/icons/favicon.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Green & White Version 5.3 -->
-    <link rel="stylesheet" href="css/style.css?v=5.3">
+    <!-- Green & White Version 6.0: Tailwind compilado, Chart.js y Firebase por npm (Vite) -->
+    <script type="module" src="/src/main.ts"></script>
 </head>
 
 <body class="bg-gray-100">
@@ -482,6 +483,14 @@
             <div class="p-3 bg-blue-50 rounded-lg mb-4 text-center">
                 <p class="text-sm text-blue-700">Saldo Deudor Total</p>
                 <p id="cliente-detalle-saldo" class="text-3xl font-bold text-blue-900">S/ 0.00</p>
+                <a id="recordar-whatsapp-btn" href="#" target="_blank" rel="noopener noreferrer"
+                    class="hidden mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white text-sm font-semibold rounded-md hover:bg-green-600"
+                    title="Enviar un recordatorio amable por WhatsApp">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.1c-.24.68-1.42 1.3-1.95 1.34-.5.05-.97.23-3.27-.68-2.77-1.09-4.52-3.92-4.66-4.1-.13-.18-1.11-1.48-1.11-2.82 0-1.34.7-2 .95-2.27.25-.27.54-.34.72-.34h.52c.17 0 .39-.06.6.46.23.54.77 1.88.84 2.02.07.13.11.29.02.47-.09.18-.13.29-.27.45-.13.16-.28.35-.4.47-.13.13-.27.28-.12.55.16.27.7 1.15 1.5 1.86 1.03.92 1.9 1.2 2.17 1.34.27.13.43.11.58-.07.16-.18.67-.78.85-1.05.18-.27.36-.22.6-.13.25.09 1.57.74 1.84.88.27.13.45.2.52.31.06.11.06.66-.18 1.34Z"/>
+                    </svg>
+                    Recordar por WhatsApp
+                </a>
             </div>
 
             <h4 class="text-md font-semibold text-gray-700 mb-2">Historial</h4>
@@ -559,12 +568,6 @@
         }
     </style>
 
-    <!-- v5.3 - Clock Only (Light Theme) -->
-    <script type="module">
-        import { initClock } from './js/clock.js?v=5.3';
-        initClock();
-    </script>
-    <script type="module" src="js/main.js?v=5.3"></script>
 
 </body>
 

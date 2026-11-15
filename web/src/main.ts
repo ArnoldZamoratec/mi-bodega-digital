@@ -1,206 +1,66 @@
-// js/main.js
+import './styles.css';
 
 import {
-    auth,
-    onAuthStateChanged,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword, // <-- NUEVO: Para crear cuentas
-    signInWithPopup, // <-- NUEVO: Para login con Google
-    GoogleAuthProvider, // <-- NUEVO: Proveedor de Google
-    signOut,
-    setPersistence, // <-- HERRAMIENTA CORREGIDA
-    browserLocalPersistence // <-- HERRAMIENTA CORREGIDA
-} from './firebase.js?v=5.3'; // MODIFICADO
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import { registerSW } from 'virtual:pwa-register';
 
-import { setupEventListeners } from './handlers.js?v=5.3';
-import { setUserId } from './store.js?v=5.3';
-import { loadProductos } from './modules/inventory.js?v=5.3';
-import { loadClientesFiado, loadClientesParaVenta } from './modules/clients.js?v=5.3';
-import { loadVentaRapidaPanel } from './modules/pos.js?v=5.3';
+import { mensajeErrorLogin, mensajeErrorRegistro, validarRegistro, type ErrorConCodigo } from './auth';
+import { initClock } from './clock';
+import { auth } from './firebase';
+import { setupEventListeners } from './handlers';
+import { cancelarTodosLosListeners } from './listeners';
+import { loadClientes, resetClientes } from './modules/clients';
+import { loadProductos } from './modules/inventory';
+import { loadVentaRapidaPanel, resetPos } from './modules/pos';
+import { resetState, setUserId } from './store';
+import {
+  destroySalesChart,
+  hideClienteDetalleModal,
+  hideClienteModal,
+  hideProductoModal,
+} from './ui';
+
+const $ = <T extends HTMLElement = HTMLElement>(id: string): T | null =>
+  document.getElementById(id) as T | null;
 
 // --- Selectores de Elementos UI ---
-const loginContainer = document.getElementById('login-container');
-const appContainer = document.getElementById('app-container');
-const loadingScreen = document.getElementById('loading-screen');
-const appContent = document.getElementById('app-content');
-const userIdDisplay = document.getElementById('user-id-display');
-const logoutBtn = document.getElementById('logout-btn');
+const loginContainer = $('login-container');
+const appContainer = $('app-container');
+const loadingScreen = $('loading-screen');
+const appContent = $('app-content');
+const userIdDisplay = $('user-id-display');
+const logoutBtn = $<HTMLButtonElement>('logout-btn');
 
 // --- Selectores de Login ---
-const loginForm = document.getElementById('login-form');
-const emailInput = document.getElementById('email-input');
-const passwordInput = document.getElementById('password-input');
-const loginErrorMsg = document.getElementById('login-error-msg');
-const emailLoginBtn = document.getElementById('email-login-btn');
+const loginForm = $<HTMLFormElement>('login-form');
+const emailInput = $<HTMLInputElement>('email-input');
+const passwordInput = $<HTMLInputElement>('password-input');
+const loginErrorMsg = $('login-error-msg');
+const emailLoginBtn = $<HTMLButtonElement>('email-login-btn');
+const googleLoginBtn = $<HTMLButtonElement>('google-login-btn');
 
 // --- Selectores de Registro ---
-const registerForm = document.getElementById('register-form');
-const registerEmailInput = document.getElementById('register-email-input');
-const registerPasswordInput = document.getElementById('register-password-input');
-const registerPasswordConfirmInput = document.getElementById('register-password-confirm-input');
-const registerErrorMsg = document.getElementById('register-error-msg');
-const registerBtn = document.getElementById('register-btn');
+const registerForm = $<HTMLFormElement>('register-form');
+const registerEmailInput = $<HTMLInputElement>('register-email-input');
+const registerPasswordInput = $<HTMLInputElement>('register-password-input');
+const registerPasswordConfirmInput = $<HTMLInputElement>('register-password-confirm-input');
+const registerErrorMsg = $('register-error-msg');
+const registerBtn = $<HTMLButtonElement>('register-btn');
 
 // --- Selectores de Toggle ---
-const toggleToRegister = document.getElementById('toggle-to-register');
-const toggleToLogin = document.getElementById('toggle-to-login');
-const authModeTitle = document.getElementById('auth-mode-title');
+const toggleToRegister = $('toggle-to-register');
+const toggleToLogin = $('toggle-to-login');
+const authModeTitle = $('auth-mode-title');
 
-let dataLoaded = false;
-
-function loadInitialData() {
-    if (dataLoaded) return;
-
-    if (loadingScreen) loadingScreen.classList.add('hidden');
-    if (appContent) appContent.classList.remove('hidden');
-
-    loadProductos();
-    loadClientesFiado();
-    loadClientesParaVenta();
-    loadVentaRapidaPanel();
-
-    dataLoaded = true;
-}
-
-function showLoginError(error) {
-    if (!loginErrorMsg) return;
-    console.error("Error de login:", error);
-
-    switch (error.code) {
-        case 'auth/user-not-found':
-            loginErrorMsg.textContent = '? Usuario no encontrado. Verifica el email o crea un usuario en Firebase Console.';
-            break;
-        case 'auth/wrong-password':
-            loginErrorMsg.textContent = '? Contraseña incorrecta. Intenta de nuevo.';
-            break;
-        case 'auth/invalid-email':
-            loginErrorMsg.textContent = '? Correo no válido. Usa formato: usuario@dominio.com';
-            break;
-        case 'auth/invalid-credential':
-            loginErrorMsg.textContent = '? Credenciales inválidas. Verifica email y contraseña.';
-            break;
-        case 'auth/too-many-requests':
-            loginErrorMsg.textContent = '? Demasiados intentos. Espera unos minutos.';
-            break;
-        case 'auth/network-request-failed':
-            loginErrorMsg.textContent = '? Error de red. Verifica tu conexión a internet.';
-            break;
-        case 'auth/configuration-not-found':
-            loginErrorMsg.textContent = '? Firebase no está configurado. Verifica la configuración.';
-            break;
-        default:
-            loginErrorMsg.textContent = `? Error: ${error.message || 'Error desconocido'}`;
-            break;
-    }
-}
-
-async function main() {
-    try {
-        await setPersistence(auth, browserLocalPersistence);
-    } catch (error) {
-        console.error("Error al configurar la persistencia:", error);
-    }
-
-
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            setUserId(user.uid);
-
-            if (userIdDisplay) userIdDisplay.textContent = `Usuario: ${user.email}`;
-
-            if (appContainer) {
-                appContainer.classList.remove('hidden');
-                appContainer.classList.add('flex');
-            }
-            if (loginContainer) loginContainer.classList.add('hidden');
-
-            loadInitialData();
-
-        } else {
-
-            if (appContainer) {
-                appContainer.classList.add('hidden');
-                appContainer.classList.remove('flex');
-            }
-            if (loginContainer) loginContainer.classList.remove('hidden');
-
-            dataLoaded = false;
-        }
-    });
-}
-
-
-const googleLoginBtn = document.getElementById('google-login-btn');
-
-function showErrorMessage(message) {
-    if (loginErrorMsg) {
-        loginErrorMsg.textContent = message;
-        loginErrorMsg.classList.remove('hidden');
-    }
-}
-
-function hideErrorMessage() {
-    if (loginErrorMsg) {
-        loginErrorMsg.classList.add('hidden');
-        loginErrorMsg.textContent = '';
-    }
-}
-
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        hideErrorMessage();
-
-        const email = emailInput.value;
-        const password = passwordInput.value;
-
-        if (!email || !password) {
-            showErrorMessage('Por favor, completa ambos campos.');
-            return;
-        }
-
-        if (emailLoginBtn) {
-            emailLoginBtn.disabled = true;
-            emailLoginBtn.textContent = 'Ingresando...';
-        }
-
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-            console.error("Error al iniciar sesión:", error);
-            showLoginError(error);
-            showErrorMessage(loginErrorMsg.textContent);
-
-            if (emailLoginBtn) {
-                emailLoginBtn.disabled = false;
-                emailLoginBtn.textContent = 'Ingresar con Email';
-            }
-        }
-    });
-}
-
-if (googleLoginBtn) {
-    googleLoginBtn.addEventListener('click', async () => {
-        hideErrorMessage();
-        googleLoginBtn.disabled = true;
-        googleLoginBtn.textContent = 'Abriendo Google...';
-
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-        } catch (error) {
-            console.error("Error al iniciar sesión con Google:", error);
-
-            if (error.code === 'auth/popup-closed-by-user') {
-                showErrorMessage('? Popup cerrado. Intenta de nuevo.');
-            } else if (error.code === 'auth/popup-blocked') {
-                showErrorMessage('? Popup bloqueado. Permite popups para este sitio.');
-            } else {
-                showErrorMessage(`? Error: ${error.message}`);
-            }
-
-            googleLoginBtn.disabled = false;
-            googleLoginBtn.innerHTML = `
+const GOOGLE_BTN_HTML = `
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -209,115 +69,195 @@ if (googleLoginBtn) {
                 </svg>
                 Ingresar con Google
             `;
-        }
-    });
+
+let dataLoaded = false;
+
+function loadInitialData(): void {
+  if (dataLoaded) return;
+
+  loadingScreen?.classList.add('hidden');
+  appContent?.classList.remove('hidden');
+
+  loadProductos();
+  loadClientes(); // pestaÃ±a Fiado + selector de clientes del POS + config/negocio
+  loadVentaRapidaPanel();
+
+  dataLoaded = true;
 }
 
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        try {
-            await signOut(auth);
-        } catch (error) {
-            console.error("Error al cerrar sesión:", error);
-        }
-    });
+/** Logout (o sesiÃ³n expirada): cierra TODOS los listeners y olvida los datos del usuario. */
+function limpiarSesion(): void {
+  cancelarTodosLosListeners();
+  resetClientes();
+  resetPos();
+  resetState();
+  destroySalesChart();
+  hideProductoModal();
+  hideClienteModal();
+  hideClienteDetalleModal();
+  dataLoaded = false;
 }
 
-if (toggleToRegister) {
-    toggleToRegister.addEventListener('click', () => {
-        if (loginForm) loginForm.classList.add('hidden');
-        if (registerForm) registerForm.classList.remove('hidden');
-        if (toggleToRegister) toggleToRegister.classList.add('hidden');
-        if (toggleToLogin) toggleToLogin.classList.remove('hidden');
-        if (authModeTitle) authModeTitle.textContent = 'Crear Nueva Cuenta';
-        hideErrorMessage();
-        if (registerErrorMsg) {
-            registerErrorMsg.classList.add('hidden');
-            registerErrorMsg.textContent = '';
-        }
-    });
+function showErrorMessage(message: string): void {
+  if (!loginErrorMsg) return;
+  loginErrorMsg.textContent = message;
+  loginErrorMsg.classList.remove('hidden');
 }
 
-if (toggleToLogin) {
-    toggleToLogin.addEventListener('click', () => {
-        if (registerForm) registerForm.classList.add('hidden');
-        if (loginForm) loginForm.classList.remove('hidden');
-        if (toggleToLogin) toggleToLogin.classList.add('hidden');
-        if (toggleToRegister) toggleToRegister.classList.remove('hidden');
-        if (authModeTitle) authModeTitle.textContent = 'Acceso de Administrador';
-        hideErrorMessage();
-        if (registerErrorMsg) {
-            registerErrorMsg.classList.add('hidden');
-            registerErrorMsg.textContent = '';
-        }
-    });
+function hideErrorMessage(): void {
+  if (!loginErrorMsg) return;
+  loginErrorMsg.classList.add('hidden');
+  loginErrorMsg.textContent = '';
 }
 
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = registerEmailInput.value;
-        const password = registerPasswordInput.value;
-        const passwordConfirm = registerPasswordConfirmInput.value;
-        if (registerErrorMsg) {
-            registerErrorMsg.classList.add('hidden');
-            registerErrorMsg.textContent = '';
-        }
-        if (password !== passwordConfirm) {
-            if (registerErrorMsg) {
-                registerErrorMsg.textContent = '? Las contraseñas no coinciden';
-                registerErrorMsg.classList.remove('hidden');
-            }
-            return;
-        }
-        if (password.length < 6) {
-            if (registerErrorMsg) {
-                registerErrorMsg.textContent = '? La contraseña debe tener al menos 6 caracteres';
-                registerErrorMsg.classList.remove('hidden');
-            }
-            return;
-        }
-        if (registerBtn) {
-            registerBtn.disabled = true;
-            registerBtn.textContent = 'Creando cuenta...';
-        }
-        try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            registerEmailInput.value = '';
-            registerPasswordInput.value = '';
-            registerPasswordConfirmInput.value = '';
-        } catch (error) {
-            console.error("Error al crear cuenta:", error);
-            let errorMessage = '';
-            switch (error.code) {
-                case 'auth/email-already-in-use':
-                    errorMessage = '? Este email ya está registrado. Intenta iniciar sesión.';
-                    break;
-                case 'auth/invalid-email':
-                    errorMessage = '? Email inválido. Usa formato: usuario@dominio.com';
-                    break;
-                case 'auth/weak-password':
-                    errorMessage = '? Contraseña muy débil. Usa al menos 6 caracteres.';
-                    break;
-                case 'auth/operation-not-allowed':
-                    errorMessage = '? Registro deshabilitado. Contacta al administrador.';
-                    break;
-                default:
-                    errorMessage = `? Error: ${error.message}`;
-                    break;
-            }
-            if (registerErrorMsg) {
-                registerErrorMsg.textContent = errorMessage;
-                registerErrorMsg.classList.remove('hidden');
-            }
-            if (registerBtn) {
-                registerBtn.disabled = false;
-                registerBtn.textContent = 'Crear Cuenta';
-            }
-        }
-    });
+function hideRegisterError(): void {
+  if (!registerErrorMsg) return;
+  registerErrorMsg.classList.add('hidden');
+  registerErrorMsg.textContent = '';
 }
 
+function showRegisterError(message: string): void {
+  if (!registerErrorMsg) return;
+  registerErrorMsg.textContent = message;
+  registerErrorMsg.classList.remove('hidden');
+}
 
+async function main(): Promise<void> {
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch (error) {
+    console.error('Error al configurar la persistencia:', error);
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      setUserId(user.uid);
+      if (userIdDisplay) userIdDisplay.textContent = `Usuario: ${user.email}`;
+
+      appContainer?.classList.remove('hidden');
+      appContainer?.classList.add('flex');
+      loginContainer?.classList.add('hidden');
+
+      loadInitialData();
+    } else {
+      limpiarSesion();
+      appContainer?.classList.add('hidden');
+      appContainer?.classList.remove('flex');
+      loginContainer?.classList.remove('hidden');
+    }
+  });
+}
+
+loginForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideErrorMessage();
+
+  const email = emailInput?.value ?? '';
+  const password = passwordInput?.value ?? '';
+
+  if (!email || !password) {
+    showErrorMessage('Por favor, completa ambos campos.');
+    return;
+  }
+
+  if (emailLoginBtn) {
+    emailLoginBtn.disabled = true;
+    emailLoginBtn.textContent = 'Ingresando...';
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error('Error al iniciar sesiÃ³n:', error);
+    showErrorMessage(mensajeErrorLogin(error as ErrorConCodigo));
+    if (emailLoginBtn) {
+      emailLoginBtn.disabled = false;
+      emailLoginBtn.textContent = 'Ingresar con Email';
+    }
+  }
+});
+
+googleLoginBtn?.addEventListener('click', async () => {
+  hideErrorMessage();
+  googleLoginBtn.disabled = true;
+  googleLoginBtn.textContent = 'Abriendo Google...';
+
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch (error) {
+    console.error('Error al iniciar sesiÃ³n con Google:', error);
+    const { code, message } = error as ErrorConCodigo;
+    if (code === 'auth/popup-closed-by-user') {
+      showErrorMessage('âŒ Popup cerrado. Intenta de nuevo.');
+    } else if (code === 'auth/popup-blocked') {
+      showErrorMessage('âŒ Popup bloqueado. Permite popups para este sitio.');
+    } else {
+      showErrorMessage(`âŒ Error: ${message}`);
+    }
+    googleLoginBtn.disabled = false;
+    googleLoginBtn.innerHTML = GOOGLE_BTN_HTML;
+  }
+});
+
+logoutBtn?.addEventListener('click', async () => {
+  // Primero se cierran los listeners: si no, fallan con permission-denied al perder la sesiÃ³n.
+  limpiarSesion();
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Error al cerrar sesiÃ³n:', error);
+  }
+});
+
+function mostrarModo(registro: boolean): void {
+  loginForm?.classList.toggle('hidden', registro);
+  registerForm?.classList.toggle('hidden', !registro);
+  toggleToRegister?.classList.toggle('hidden', registro);
+  toggleToLogin?.classList.toggle('hidden', !registro);
+  if (authModeTitle) {
+    authModeTitle.textContent = registro ? 'Crear Nueva Cuenta' : 'Acceso de Administrador';
+  }
+  hideErrorMessage();
+  hideRegisterError();
+}
+
+toggleToRegister?.addEventListener('click', () => mostrarModo(true));
+toggleToLogin?.addEventListener('click', () => mostrarModo(false));
+
+registerForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = registerEmailInput?.value ?? '';
+  const password = registerPasswordInput?.value ?? '';
+  const passwordConfirm = registerPasswordConfirmInput?.value ?? '';
+  hideRegisterError();
+
+  const invalido = validarRegistro(password, passwordConfirm);
+  if (invalido) {
+    showRegisterError(invalido);
+    return;
+  }
+  if (registerBtn) {
+    registerBtn.disabled = true;
+    registerBtn.textContent = 'Creando cuenta...';
+  }
+  try {
+    await createUserWithEmailAndPassword(auth, email, password);
+    if (registerEmailInput) registerEmailInput.value = '';
+    if (registerPasswordInput) registerPasswordInput.value = '';
+    if (registerPasswordConfirmInput) registerPasswordConfirmInput.value = '';
+  } catch (error) {
+    console.error('Error al crear cuenta:', error);
+    showRegisterError(mensajeErrorRegistro(error as ErrorConCodigo));
+    if (registerBtn) {
+      registerBtn.disabled = false;
+      registerBtn.textContent = 'Crear Cuenta';
+    }
+  }
+});
+
+// PWA: service worker del "app shell" (vite-plugin-pwa). Se actualiza solo al publicar.
+registerSW({ immediate: true });
+
+initClock();
 setupEventListeners();
-main();
+void main();

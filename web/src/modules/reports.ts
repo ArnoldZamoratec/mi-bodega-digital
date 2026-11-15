@@ -1,189 +1,127 @@
-import { query, where, getDocs, onSnapshot, Timestamp } from '../firebase.js?v=5.3';
-import { getVentasCol, getDeudasCol } from '../store.js?v=5.3';
-import { showToast, updateReporteUI } from '../ui.js?v=5.3';
+import {
+  claveDiaLima,
+  ErrorDominio,
+  generarReporte,
+  rangoConsulta,
+  rangoDiasLima,
+  type MovimientoFiado,
+  type RangoFechas,
+  type Venta,
+} from '@bodegon/core';
+import { onSnapshot, query, Timestamp, where } from 'firebase/firestore';
 
-/**
- * Función principal que lee las fechas del DOM y llama a loadReporte.
- */
-export function loadReporteDelDia() {
-    const fechaInicioString = document.getElementById('reporte-fecha-inicio').value;
-    const fechaFinString = document.getElementById('reporte-fecha-fin').value;
+import { registrarListener, type Cancelar } from '../listeners';
+import { aMovimiento, aVenta } from '../mappers';
+import { getDeudasCol, getVentasCol } from '../store';
+import { showToast, updateReporteUI, type TotalesReporte } from '../ui';
 
-    if (!fechaInicioString || !fechaFinString) {
-        // No mostramos toast aquí, es normal al cargar la app
-        return;
-    }
+const valorFecha = (id: string): string =>
+  (document.getElementById(id) as HTMLInputElement | null)?.value ?? '';
 
-    // Rango en hora de Perú (UTC-5, sin horario de verano), sin importar la zona del navegador
-    const fechaInicio = new Date(`${fechaInicioString}T00:00:00.000-05:00`);
-    const fechaFin = new Date(`${fechaFinString}T23:59:59.999-05:00`);
+/** Lee las fechas del DOM (días de Lima) y carga el reporte en tiempo real. */
+export function loadReporteDelDia(): void {
+  const inicio = valorFecha('reporte-fecha-inicio');
+  const fin = valorFecha('reporte-fecha-fin');
+  if (!inicio || !fin) return; // normal al cargar la app
 
-    if (fechaFin < fechaInicio) {
-        showToast("La fecha de fin no puede ser anterior a la de inicio", true);
-        return;
-    }
-
-    loadReporte(fechaInicio, fechaFin);
+  let rango: RangoFechas;
+  try {
+    // Rango en hora de Perú (UTC−5), sin importar la zona del navegador (RN-08).
+    rango = rangoDiasLima(inicio, fin);
+  } catch (error) {
+    showToast(
+      error instanceof ErrorDominio ? error.message : 'Error al cargar el reporte',
+      true,
+    );
+    return;
+  }
+  loadReporte(rango);
 }
 
-export function handleReporteDateChange() {
-    loadReporteDelDia();
-}
-export function handleReporteRefreshClick() {
-    loadReporteDelDia();
-    // Toast removed - visual update is sufficient feedback
-}
+export const handleReporteDateChange = (): void => loadReporteDelDia();
+export const handleReporteRefreshClick = (): void => loadReporteDelDia();
 
 /**
- * Variable global para almacenar los unsubscribe de los listeners
+ * Totales que muestra la pestaña Reportes, calculados por el core (los mismos que la app
+ * móvil): céntimos, fecha efectiva `creadaEn ?? fecha` con resguardos (D-26), día de Lima,
+ * anulaciones, monto libre fuera del top, abonos por su método de pago (RN-06/07).
  */
-let unsubscribeVentas = null;
-let unsubscribeDeudas = null;
+export function calcularTotales(
+  ventas: readonly Venta[],
+  movimientos: readonly MovimientoFiado[],
+  rango: RangoFechas,
+): TotalesReporte {
+  const r = generarReporte(ventas, movimientos, rango, 5, claveDiaLima);
+  return {
+    totalGeneral: r.totalIngresos,
+    totalEfectivo: r.totalEfectivo,
+    totalYape: r.totalYape,
+    totalFiado: r.totalFiado,
+    top5Products: r.topProductos.map((p) => [p.nombre, p.cantidad]),
+    chartLabels: r.serieDiaria.map((p) => p.dia),
+    chartData: r.serieDiaria.map((p) => p.ingresos),
+  };
+}
 
-/**
- * Lógica principal para consultar y calcular el reporte por rango.
- * Ahora usa onSnapshot para actualizaciones en tiempo real.
- */
-async function loadReporte(fechaInicio, fechaFin) {
+let cancelarVentas: Cancelar | null = null;
+let cancelarDeudas: Cancelar | null = null;
 
-    // Cancelar listeners anteriores si existen
-    if (unsubscribeVentas) {
-        unsubscribeVentas();
-        unsubscribeVentas = null;
-    }
-    if (unsubscribeDeudas) {
-        unsubscribeDeudas();
-        unsubscribeDeudas = null;
-    }
+function cerrarListeners(): void {
+  cancelarVentas?.();
+  cancelarDeudas?.();
+  cancelarVentas = null;
+  cancelarDeudas = null;
+}
 
-    const inicioTimestamp = Timestamp.fromDate(fechaInicio);
-    const finTimestamp = Timestamp.fromDate(fechaFin);
+function loadReporte(rango: RangoFechas): void {
+  cerrarListeners();
 
-    let totalGeneral = 0;
-    let totalEfectivo = 0;
-    let totalYape = 0;
-    let totalFiado = 0;
+  // D-26: se consulta por `fecha` (índice simple) hasta fin + margen, para traer las ventas
+  // cobradas sin conexión que se sincronizaron después; el core filtra por fecha efectiva.
+  const consulta = rangoConsulta(rango);
+  const desde = Timestamp.fromDate(consulta.inicio);
+  const hasta = Timestamp.fromDate(consulta.fin);
 
-    const productSalesMap = new Map();
-    const dailySalesMap = new Map();
+  let ventas: Venta[] = [];
+  let movimientos: MovimientoFiado[] = [];
+  const recalcular = () => updateReporteUI(calcularTotales(ventas, movimientos, rango));
 
-    // Función para recalcular totales
-    function recalcularTotales(ventasSnapshot, deudasSnapshot) {
-        // Resetear totales
-        totalGeneral = 0;
-        totalEfectivo = 0;
-        totalYape = 0;
-        totalFiado = 0;
-        productSalesMap.clear();
-        dailySalesMap.clear();
+  try {
+    const qVentas = query(getVentasCol(), where('fecha', '>=', desde), where('fecha', '<=', hasta));
+    // B-06: sin filtro monto<0 (requeriría índice compuesto); el core filtra en memoria.
+    const qDeudas = query(getDeudasCol(), where('fecha', '>=', desde), where('fecha', '<=', hasta));
 
-        // Procesar ventas
-        ventasSnapshot.forEach(doc => {
-            const venta = doc.data();
-            let saleAmount = 0;
+    cancelarVentas = registrarListener(
+      onSnapshot(
+        qVentas,
+        (snapshot) => {
+          ventas = snapshot.docs.map((d) => aVenta(d.id, d.data({ serverTimestamps: 'estimate' })));
+          recalcular();
+        },
+        (error) => {
+          console.error('Error en listener de ventas:', error);
+          showToast('Error al cargar ventas en tiempo real', true);
+        },
+      ),
+    );
 
-            if (venta.metodoDePago === 'Efectivo') {
-                totalEfectivo += venta.total;
-                saleAmount = venta.total;
-            } else if (venta.metodoDePago === 'Yape/Plin') {
-                totalYape += venta.total;
-                saleAmount = venta.total;
-            } else if (venta.metodoDePago === 'Fiado') {
-                totalFiado += venta.total;
-            }
-
-            if (venta.items && Array.isArray(venta.items)) {
-                venta.items.forEach(item => {
-                    const currentQty = productSalesMap.get(item.nombre) || 0;
-                    productSalesMap.set(item.nombre, currentQty + item.cantidad);
-                });
-            }
-
-            if (venta.fecha && saleAmount > 0) {
-                const dayKey = (venta.creadaEn || venta.fecha).toDate().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-                const currentSales = dailySalesMap.get(dayKey) || 0;
-                dailySalesMap.set(dayKey, currentSales + saleAmount);
-            }
-        });
-
-        // Procesar deudas (pagos)
-        deudasSnapshot.forEach(doc => {
-            const deuda = doc.data();
-            // Solo abonos (monto < 0) con método conocido: gráfico y totales usan el mismo criterio
-            if (!(deuda.monto < 0)) return;
-            if (deuda.metodoPago !== 'Efectivo' && deuda.metodoPago !== 'Yape/Plin') return;
-            const pagoRecibido = Math.abs(deuda.monto);
-
-            if (deuda.metodoPago === 'Efectivo') {
-                totalEfectivo += pagoRecibido;
-            } else {
-                totalYape += pagoRecibido;
-            }
-
-            if (deuda.fecha) {
-                const dayKey = (deuda.creadaEn || deuda.fecha).toDate().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
-                const currentSales = dailySalesMap.get(dayKey) || 0;
-                dailySalesMap.set(dayKey, currentSales + pagoRecibido);
-            }
-        });
-
-        totalGeneral = totalEfectivo + totalYape;
-
-        const top5Products = Array.from(productSalesMap.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-
-        const sortedDailySales = new Map([...dailySalesMap.entries()].sort());
-        const chartLabels = Array.from(sortedDailySales.keys());
-        const chartData = Array.from(sortedDailySales.values());
-
-        updateReporteUI({
-            totalGeneral,
-            totalEfectivo,
-            totalYape,
-            totalFiado,
-            top5Products,
-            chartLabels,
-            chartData
-        });
-    }
-
-    try {
-        const qVentas = query(getVentasCol(),
-            where("fecha", ">=", inicioTimestamp),
-            where("fecha", "<=", finTimestamp)
-        );
-
-        const qDeudas = query(getDeudasCol(),
-            where("fecha", ">=", inicioTimestamp),
-            where("fecha", "<=", finTimestamp)
-        );  // B-06: sin filtro monto<0 (requería índice compuesto); se filtra en el cliente
-
-        let ventasData = [];
-        let deudasData = [];
-
-        // Listener en tiempo real para ventas
-        unsubscribeVentas = onSnapshot(qVentas, (snapshot) => {
-
-            ventasData = snapshot.docs;
-            recalcularTotales(ventasData, deudasData);
-        }, (error) => {
-            console.error("Error en listener de ventas:", error);
-            showToast("Error al cargar ventas en tiempo real", true);
-        });
-
-        // Listener en tiempo real para deudas
-        unsubscribeDeudas = onSnapshot(qDeudas, (snapshot) => {
-
-            deudasData = snapshot.docs;
-            recalcularTotales(ventasData, deudasData);
-        }, (error) => {
-            console.error("Error en listener de deudas:", error);
-            showToast("Error al cargar pagos en tiempo real", true);
-        });
-
-    } catch (error) {
-        console.error("Error al cargar reporte: ", error);
-        showToast("Error al cargar el reporte", true);
-    }
+    cancelarDeudas = registrarListener(
+      onSnapshot(
+        qDeudas,
+        (snapshot) => {
+          movimientos = snapshot.docs.map((d) =>
+            aMovimiento(d.id, d.data({ serverTimestamps: 'estimate' })),
+          );
+          recalcular();
+        },
+        (error) => {
+          console.error('Error en listener de deudas:', error);
+          showToast('Error al cargar pagos en tiempo real', true);
+        },
+      ),
+    );
+  } catch (error) {
+    console.error('Error al cargar reporte: ', error);
+    showToast('Error al cargar el reporte', true);
+  }
 }

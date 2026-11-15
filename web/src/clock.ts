@@ -1,35 +1,26 @@
 // Clock Module for Mi Bodega Digital
 // Displays real-time date and time in header
 
-export function initClock() {
-    const dateElement = document.getElementById('current-date');
-    const timeElement = document.getElementById('current-time');
+/** "DD/MM/YYYY" y "HH:MM:SS" en la hora del navegador (igual que la v5.3). */
+export function formatearReloj(now: Date): { fecha: string; hora: string } {
+  const dos = (n: number) => String(n).padStart(2, '0');
+  return {
+    fecha: `${dos(now.getDate())}/${dos(now.getMonth() + 1)}/${now.getFullYear()}`,
+    hora: `${dos(now.getHours())}:${dos(now.getMinutes())}:${dos(now.getSeconds())}`,
+  };
+}
 
-    if (!dateElement || !timeElement) return;
+export function initClock(): void {
+  const dateElement = document.getElementById('current-date');
+  const timeElement = document.getElementById('current-time');
+  if (!dateElement || !timeElement) return;
 
-    function updateClock() {
-        const now = new Date();
+  const updateClock = () => {
+    const { fecha, hora } = formatearReloj(new Date());
+    dateElement.textContent = fecha;
+    timeElement.textContent = hora;
+  };
 
-        // Format date: DD/MM/YYYY
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const year = now.getFullYear();
-        const dateString = `${day}/${month}/${year}`;
-
-        // Format time: HH:MM:SS
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const timeString = `${hours}:${minutes}:${seconds}`;
-
-        // Update DOM
-        dateElement.textContent = dateString;
-        timeElement.textContent = timeString;
-    }
-
-    // Initial update
-    updateClock();
-
-    // Update every second
-    setInterval(updateClock, 1000);
+  updateClock();
+  setInterval(updateClock, 1000);
 }

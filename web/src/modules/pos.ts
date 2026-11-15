@@ -1,146 +1,142 @@
-import { onSnapshot, query, doc, increment, serverTimestamp, runTransaction, db } from '../firebase.js?v=5.3';
 import {
-    getProductosCol,
-    getVentasCol,
-    getDeudasCol,
-    getCart,
-    clearCart,
-    addToCartState,
-    removeFromCartState
-} from '../store.js?v=5.3';
-import { showToast, renderVentaRapida, renderCart, resetVentaForm } from '../ui.js?v=5.3';
+  armarOperacionVenta,
+  ErrorDominio,
+  type MetodoPagoVenta,
+  type Producto,
+} from '@bodegon/core';
+import { doc, increment, onSnapshot, query, runTransaction, serverTimestamp } from 'firebase/firestore';
 
-let allProducts = [];
+import { db } from '../firebase';
+import { registrarListener } from '../listeners';
+import { aProducto, porNombre } from '../mappers';
+import {
+  addToCartState,
+  clearCart,
+  getCart,
+  getDeudasCol,
+  getProductosCol,
+  getVentasCol,
+  removeFromCartState,
+} from '../store';
+import { renderCart, renderVentaRapida, resetVentaForm, showToast } from '../ui';
+
+let allProducts: Producto[] = [];
 let ventaEnCurso = false;
 
-function handleAddToCart(producto) {
-    addToCartState({
-        id: producto.id,
-        nombre: producto.nombre,
-        precio: producto.precio
-    });
-    renderCart(getCart(), handleRemoveFromCart);
-    // Toast removed - user sees product added to cart visually
+function handleAddToCart(producto: Producto): void {
+  addToCartState({ id: producto.id, nombre: producto.nombre, precio: producto.precio });
+  renderCart(getCart());
 }
 
-function handleRemoveFromCart(id) {
-    removeFromCartState(id);
-    renderCart(getCart(), handleRemoveFromCart);
+function handleRemoveFromCart(id: string): void {
+  removeFromCartState(id);
+  renderCart(getCart());
 }
 
-export function filterAndRenderVentaRapida() {
-    const searchInput = document.getElementById('search-bar');
-    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-
-    const filteredProducts = allProducts.filter(producto =>
-        producto.nombre.toLowerCase().includes(searchTerm)
-    );
-
-    renderVentaRapida(filteredProducts, handleAddToCart);
+/** Filtro del POS: "contiene", sin distinguir mayúsculas (igual que la v5.3). */
+export function filtrarProductos(productos: readonly Producto[], termino: string): Producto[] {
+  const t = termino.toLowerCase();
+  return productos.filter((p) => p.nombre.toLowerCase().includes(t));
 }
 
-export function loadVentaRapidaPanel() {
-    const q = query(getProductosCol());
+export function filterAndRenderVentaRapida(): void {
+  const searchInput = document.getElementById('search-bar') as HTMLInputElement | null;
+  renderVentaRapida(filtrarProductos(allProducts, searchInput?.value ?? ''), handleAddToCart);
+}
 
-    onSnapshot(q, (snapshot) => {
-        const productos = [];
-        snapshot.forEach(doc => {
-            productos.push({ id: doc.id, ...doc.data() });
-        });
-
-        allProducts = productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
+export function loadVentaRapidaPanel(): void {
+  registrarListener(
+    onSnapshot(
+      query(getProductosCol()),
+      (snapshot) => {
+        allProducts = snapshot.docs.map((d) => aProducto(d.id, d.data())).sort(porNombre);
         filterAndRenderVentaRapida();
+      },
+      (error) => {
+        console.error('Error al cargar panel de venta rápida: ', error);
+        showToast('Error al cargar productos', true);
+      },
+    ),
+  );
+}
 
-    }, (error) => {
-        console.error("Error al cargar panel de venta rápida: ", error);
-        showToast("Error al cargar productos", true);
+/** Al cerrar sesión. */
+export function resetPos(): void {
+  allProducts = [];
+  ventaEnCurso = false;
+  clearCart();
+  renderCart(getCart());
+}
+
+export function handleCartClick(e: Event): void {
+  const removeBtn = (e.target as Element | null)?.closest<HTMLElement>('.remove-from-cart-btn');
+  const id = removeBtn?.dataset.id;
+  if (id) handleRemoveFromCart(id);
+}
+
+export async function handleVentaFormSubmit(e: SubmitEvent): Promise<void> {
+  e.preventDefault();
+  if (ventaEnCurso) return; // evita ventas duplicadas por doble clic
+
+  const metodoDePago = (document.getElementById('venta-metodo-pago') as HTMLSelectElement)
+    .value as MetodoPagoVenta;
+  const clienteId =
+    (document.getElementById('venta-cliente-fiado') as HTMLSelectElement | null)?.value || null;
+
+  // Reglas del core (RN-03/04/05, total en céntimos). Mismos mensajes que la v5.3:
+  // "El carrito está vacío", "Debes seleccionar un cliente para fiar".
+  let op;
+  try {
+    op = armarOperacionVenta({
+      carrito: getCart(),
+      metodoDePago,
+      clienteId,
+      ventaId: doc(getVentasCol()).id,
+      cargoId: doc(getDeudasCol()).id,
+      ahora: Date.now(),
     });
-}
+  } catch (error) {
+    showToast(error instanceof ErrorDominio ? error.message : 'Error al registrar la venta', true);
+    return;
+  }
 
+  const submitBtn =
+    (e.submitter as HTMLButtonElement | null) ??
+    (e.target as HTMLFormElement).querySelector<HTMLButtonElement>('[type="submit"]');
+  ventaEnCurso = true;
+  if (submitBtn) submitBtn.disabled = true;
 
-export function handleCartClick(e) {
-    const removeBtn = e.target.closest('.remove-from-cart-btn');
-    if (removeBtn) {
-        handleRemoveFromCart(removeBtn.dataset.id);
-    }
-}
+  try {
+    // Transacción atómica: venta + cargo de fiado + stock, todo o nada (B-03).
+    await runTransaction(db, async (tx) => {
+      const refs = op.deltasStock.map((d) => doc(getProductosCol(), d.productoId));
+      const snaps = await Promise.all(refs.map((r) => tx.get(r)));
 
-export async function handleVentaFormSubmit(e) {
-    e.preventDefault();
-    const cart = getCart();
-    if (cart.length === 0) {
-        showToast("El carrito está vacío", true);
-        return;
-    }
+      tx.set(doc(getVentasCol(), op.ventaId), { ...op.venta, fecha: serverTimestamp() });
 
-    const metodoDePago = document.getElementById('venta-metodo-pago').value;
-    const clienteId = document.getElementById('venta-cliente-fiado').value;
-    const total = cart.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+      if (op.cargo && op.cargoId) {
+        tx.set(doc(getDeudasCol(), op.cargoId), { ...op.cargo, fecha: serverTimestamp() });
+      }
 
-    if (metodoDePago === 'Fiado' && !clienteId) {
-        showToast("Debes seleccionar un cliente para fiar", true);
-        return;
-    }
+      // B-10: solo descuenta stock de productos que existen y tienen stock controlado (no null).
+      snaps.forEach((snap, i) => {
+        const ref = refs[i];
+        const delta = op.deltasStock[i]?.delta;
+        if (!ref || delta === undefined || !snap.exists()) return;
+        const stock = snap.data().stock;
+        if (stock === null || stock === undefined) return;
+        tx.update(ref, { stock: increment(delta) });
+      });
+    });
 
-    const submitBtn = e.submitter || e.target.querySelector('[type="submit"]');
-    if (ventaEnCurso) return; // evita ventas duplicadas por doble clic
-    ventaEnCurso = true;
-    if (submitBtn) submitBtn.disabled = true;
-
-    try {
-        // Céntimos enteros para evitar errores de redondeo (0.1 + 0.2)
-        const totalCent = cart.reduce((sum, item) => sum + Math.round(item.precio * 100) * item.cantidad, 0);
-        const totalSoles = totalCent / 100;
-
-        // Transacción atómica: venta + cargo de fiado + stock, todo o nada.
-        await runTransaction(db, async (tx) => {
-            const refs = cart.map(item => doc(getProductosCol(), item.id));
-            const snaps = await Promise.all(refs.map(r => tx.get(r)));
-
-            const ventaRef = doc(getVentasCol());
-            tx.set(ventaRef, {
-                items: cart.map(item => ({ ...item })),
-                total: totalSoles,
-                metodoDePago: metodoDePago,
-                clienteId: metodoDePago === 'Fiado' ? clienteId : null,
-                fecha: serverTimestamp()
-            });
-
-            if (metodoDePago === 'Fiado' && clienteId) {
-                let descripcionDeuda = cart.map(item => `${item.nombre} (x${item.cantidad})`).join(', ');
-                if (descripcionDeuda.length > 100) {
-                    descripcionDeuda = descripcionDeuda.substring(0, 97) + '...';
-                }
-                tx.set(doc(getDeudasCol()), {
-                    clienteId: clienteId,
-                    monto: totalSoles,
-                    descripcion: descripcionDeuda,
-                    fecha: serverTimestamp(),
-                    ventaId: ventaRef.id,
-                    pagado: false
-                });
-            }
-
-            // Solo descuenta stock de productos que existen y tienen stock controlado (no null)
-            snaps.forEach((snap, i) => {
-                if (!snap.exists()) return;
-                const stock = snap.data().stock;
-                if (stock === null || stock === undefined) return;
-                tx.update(refs[i], { stock: increment(-cart[i].cantidad) });
-            });
-        });
-
-        clearCart();
-        renderCart(getCart(), handleRemoveFromCart);
-        resetVentaForm();
-        // Toast removed - cart clears, form resets = visual confirmation
-
-    } catch (error) {
-        console.error("Error al registrar venta: ", error);
-        showToast("Error al registrar la venta", true);
-    } finally {
-        ventaEnCurso = false;
-        if (submitBtn) submitBtn.disabled = false;
-    }
+    clearCart();
+    renderCart(getCart());
+    resetVentaForm();
+  } catch (error) {
+    console.error('Error al registrar venta: ', error);
+    showToast('Error al registrar la venta', true);
+  } finally {
+    ventaEnCurso = false;
+    if (submitBtn) submitBtn.disabled = false;
+  }
 }
