@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "bodega-difital"
+    "default": "bodega-difital",
+    "prod": "bodega-difital",
+    "dev": "bodegon-digital-dev"
   }
 }
