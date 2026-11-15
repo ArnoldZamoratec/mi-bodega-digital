@@ -1,30 +1,30 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
+import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
-import { CSP_HEADER, CSP_POLICY } from './csp.config.ts';
+import { CSP_HEADER, CSP_POLICY } from "./csp.config.ts";
 
 // Proyecto Firebase de esta compilación. Firebase CLI define GCLOUD_PROJECT en el predeploy;
 // BODEGON_PROJECT permite forzarlo a mano. Por defecto: producción.
 const proyectoFirebase =
-  process.env.BODEGON_PROJECT ?? process.env.GCLOUD_PROJECT ?? 'bodega-difital';
+  process.env.BODEGON_PROJECT ?? process.env.GCLOUD_PROJECT ?? "bodega-difital";
 
 export default defineConfig({
   define: { __FIREBASE_PROJECT__: JSON.stringify(proyectoFirebase) },
   // 404.html va en public/ y se copia tal cual (página estática de Firebase Hosting).
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
     // Sin sourcemaps en el deploy: Firebase Hosting los publicaría (≈4 MB) sin beneficio.
     sourcemap: false,
-    target: 'es2022',
+    target: "es2022",
     rolldownOptions: {
       output: {
         // Firebase y Chart.js en chunks propios: cambian poco y quedan en caché entre deploys.
         codeSplitting: {
           groups: [
-            { name: 'firebase', test: /node_modules[\\/]@?firebase/ },
-            { name: 'chart', test: /node_modules[\\/](chart\.js|@kurkle)/ },
+            { name: "firebase", test: /node_modules[\\/]@?firebase/ },
+            { name: "chart", test: /node_modules[\\/](chart\.js|@kurkle)/ },
           ],
         },
       },
@@ -36,32 +36,53 @@ export default defineConfig({
   preview: { headers: { [CSP_HEADER]: CSP_POLICY } },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: "autoUpdate",
       // El registro se hace desde main.ts (virtual:pwa-register): sin scripts inline (CSP).
       injectRegister: false,
-      includeAssets: ['icons/favicon.png', 'icons/apple-touch-icon.png'],
+      includeAssets: ["icons/favicon.png", "icons/apple-touch-icon.png"],
       manifest: {
-        name: 'Bodegón Digital',
-        short_name: 'Bodegón',
-        description: 'Punto de venta, inventario, fiado y reportes para tu bodega.',
-        lang: 'es-PE',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        orientation: 'any',
-        background_color: '#FAF7F2',
-        theme_color: '#0B6B4F',
+        name: "Bodegón Digital",
+        short_name: "Bodegón",
+        description:
+          "Punto de venta, inventario, fiado y reportes para tu bodega.",
+        lang: "es-PE",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "any",
+        background_color: "#FAF7F2",
+        theme_color: "#0B6B4F",
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: '/icons/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-          { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          {
+            src: "/icons/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icons/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/icons/maskable-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: "/icons/maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
         ],
       },
       workbox: {
         // Solo el "app shell". Los datos siguen viniendo de Firestore en vivo (sin caché propia).
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2}'],
-        navigateFallback: '/index.html',
+        globPatterns: ["**/*.{js,css,html,png,svg,ico,webmanifest,woff2}"],
+        navigateFallback: "/index.html",
         // CRÍTICO: las rutas reservadas de Firebase Hosting (/__/auth/handler, /__/auth/iframe,
         // /__/firebase/init.json) NUNCA deben responderse con index.html desde el service
         // worker: romperían el popup de inicio de sesión con Google.
@@ -71,8 +92,8 @@ export default defineConfig({
     }),
   ],
   test: {
-    environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    environment: "jsdom",
+    include: ["src/**/*.test.ts"],
     restoreMocks: true,
   },
 });
