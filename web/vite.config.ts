@@ -4,7 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 import { CSP_HEADER, CSP_POLICY } from './csp.config.ts';
 
+// Proyecto Firebase de esta compilación. Firebase CLI define GCLOUD_PROJECT en el predeploy;
+// BODEGON_PROJECT permite forzarlo a mano. Por defecto: producción.
+const proyectoFirebase =
+  process.env.BODEGON_PROJECT ?? process.env.GCLOUD_PROJECT ?? 'bodega-difital';
+
 export default defineConfig({
+  define: { __FIREBASE_PROJECT__: JSON.stringify(proyectoFirebase) },
   // 404.html va en public/ y se copia tal cual (página estática de Firebase Hosting).
   build: {
     outDir: 'dist',
