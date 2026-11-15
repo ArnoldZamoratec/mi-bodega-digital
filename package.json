@@ -1,0 +1,25 @@
+{
+  "name": "bodegon-digital",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bodegón Digital — monorepo: núcleo de negocio compartido (packages/core), web (web/, Vite + TS) y app móvil (mobile/, Expo).",
+  "workspaces": [
+    "packages/*",
+    "web",
+    "mobile"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build:web": "npm run build -w web",
+    "dev:web": "npm run dev -w web",
+    "test:core": "npm test -w @bodegon/core",
+    "test:web": "npm test -w web",
+    "test:mobile": "npm test -w mobile",
+    "test": "npm run test:core && npm run test:web && npm run test:mobile",
+    "typecheck": "npm run typecheck -w @bodegon/core && npm run typecheck -w web && npm run typecheck -w mobile",
+    "lint": "npm run lint -w mobile",
+    "verify": "npm run typecheck && npm run lint && npm run test:coverage -w @bodegon/core && npm run test:web && npm run test:mobile && npm run build:web"
+  }
+}

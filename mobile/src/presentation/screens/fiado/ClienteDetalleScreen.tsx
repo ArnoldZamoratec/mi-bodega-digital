@@ -11,6 +11,7 @@ import {
   ordenarCronologico,
   type EstadoCargo,
 } from '@/domain/rules/fiado';
+import { enlaceRecordatorioWhatsApp } from '@/domain/rules/recordatorio';
 import { liquidarCargo } from '@/domain/usecases/fiado';
 
 import { Aparecer } from '../../components/Aparecer';
@@ -42,13 +43,6 @@ const formatoFecha = (f: Date | null) =>
       f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
     : 'Ahora';
 
-/** Celular peruano (9 dígitos que empiezan en 9) → enlace de WhatsApp. */
-const whatsapp = (telefono: string): string | null => {
-  const digitos = telefono.replace(/\D/g, '');
-  const local = digitos.startsWith('51') && digitos.length === 11 ? digitos.slice(2) : digitos;
-  return /^9\d{8}$/.test(local) ? `51${local}` : null;
-};
-
 /**
  * Wireframe Detalle de cliente:
  *  [nombre · teléfono · [📞][WhatsApp][✏]]
@@ -62,6 +56,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
   const contenedor = useContenedor();
   const cliente = useDatos((s) => s.clientes.datos.find((c) => c.id === clienteId));
   const { datos: todos, cargando, error } = useDatos((s) => s.movimientos);
+  const nombreBodega = useDatos((s) => s.config.nombre);
   const [liquidando, setLiquidando] = useState<string | null>(null);
 
   const movimientos = useMemo(
@@ -98,11 +93,14 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
     );
   }
 
-  const wa = whatsapp(cliente.telefono);
+  // Mensaje y número los arma el core (mismo texto que la web).
+  const wa = enlaceRecordatorioWhatsApp(cliente.telefono, {
+    nombreCliente: cliente.nombre,
+    saldo,
+    nombreBodega,
+  });
   const recordar = () => {
-    if (!wa) return;
-    const texto = `Hola ${cliente.nombre}, te saluda tu bodega. Tu saldo pendiente es ${formatearSoles(saldo)}. ¡Gracias!`;
-    void Linking.openURL(`https://wa.me/${wa}?text=${encodeURIComponent(texto)}`);
+    if (wa) void Linking.openURL(wa);
   };
 
   const liquidar = async (metodo: MetodoPagoAbono) => {

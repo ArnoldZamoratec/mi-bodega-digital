@@ -6,6 +6,7 @@
     "@expo-google-fonts/nunito-sans": "^0.4.2",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo-google-fonts/rubik": "^0.4.2",
+    "@bodegon/core": "*",
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -76,6 +77,7 @@
       "<rootDir>/jest.setup.tsx"
     ],
     "moduleNameMapper": {
+      "^@/domain/(.*)$": "<rootDir>/../packages/core/src/$1",
       "^@/(.*)$": "<rootDir>/src/$1"
     },
     "transformIgnorePatterns": [
@@ -87,18 +89,9 @@
       "/firebase/"
     ],
     "collectCoverageFrom": [
-      "src/domain/**/*.ts",
       "src/data/mappers.ts",
       "src/data/local/**/*.ts",
       "!**/*.d.ts"
-    ],
-    "coverageThreshold": {
-      "./src/domain/": {
-        "statements": 70,
-        "branches": 70,
-        "functions": 70,
-        "lines": 70
-      }
-    }
+    ]
   }
 }

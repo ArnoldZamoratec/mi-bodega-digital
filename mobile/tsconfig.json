@@ -6,6 +6,7 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
+      "@/domain/*": ["../packages/core/src/*"],
       "@/*": ["./src/*"]
     },
     "types": ["jest"]

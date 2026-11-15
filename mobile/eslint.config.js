@@ -16,4 +16,10 @@ module.exports = defineConfig([
       'import/namespace': 'off',
     },
   },
+  {
+    // firebase/ es un proyecto npm aparte (pruebas de reglas con el emulador) con sus propias
+    // dependencias; no se instalan con el monorepo, así que no se resuelven desde aquí.
+    files: ['firebase/**'],
+    rules: { 'import/no-unresolved': 'off' },
+  },
 ]);

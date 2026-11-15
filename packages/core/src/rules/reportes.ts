@@ -152,6 +152,8 @@ export function generarReporte(
   movimientos: readonly MovimientoFiado[],
   rango: RangoFechas,
   limiteTop = 5,
+  /** Clave de día para la serie diaria. Móvil: día local del teléfono; web: `claveDiaLima`. */
+  agruparPorDia: (fecha: Date) => string = claveDia,
 ): Reporte {
   let efectivo = 0;
   let yape = 0;
@@ -165,7 +167,7 @@ export function generarReporte(
   const porDia = new Map<string, number>();
 
   const sumarDia = (fecha: Date, centimos: number) => {
-    const k = claveDia(fecha);
+    const k = agruparPorDia(fecha);
     porDia.set(k, (porDia.get(k) ?? 0) + centimos);
   };
 
