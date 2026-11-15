@@ -8,6 +8,14 @@ import {
 let mySalesChart = null;
 // --- FIN MEJORA 2A ---
 
+// --- Seguridad: escapar texto de usuario antes de insertarlo con innerHTML (evita XSS) ---
+export function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+const money = (n) => (Number(n) || 0).toFixed(2);
+
 // --- Selectores de DOM Estáticos ---
 const elements = {
     toast: document.getElementById('toast-notification'),
@@ -130,11 +138,11 @@ export function renderVentaRapida(productos, onAddToCart) {
         itemEl.className = 'p-2 bg-white rounded-md shadow-sm flex justify-between items-center cursor-pointer hover:bg-gray-100';
         itemEl.innerHTML = `
             <div>
-                <p class="font-medium">${producto.nombre}</p>
-                <p class="text-sm text-blue-600 font-semibold">S/ ${producto.precio.toFixed(2)}</p>
+                <p class="font-medium">${esc(producto.nombre)}</p>
+                <p class="text-sm text-blue-600 font-semibold">S/ ${money(producto.precio)}</p>
             </div>
             <div class="text-right">
-                <p class="text-xs ${stockColor}">Stock: ${stock}</p>
+                <p class="text-xs ${stockColor}">Stock: ${esc(stock)}</p>
                 <button class="add-to-cart-btn bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-lg font-bold">+</button>
             </div>
         `;
@@ -155,15 +163,14 @@ export function renderCart(cart, onRemoveFromCart) {
             itemEl.className = 'flex justify-between items-center mb-2 p-2 bg-gray-50 rounded';
             itemEl.innerHTML = `
                 <div>
-                    <p class="font-medium">${item.nombre}</p>
+                    <p class="font-medium">${esc(item.nombre)}</p>
                     <p class="text-sm text-gray-600">S/ ${item.precio.toFixed(2)} x ${item.cantidad}</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="font-bold">S/ ${(item.precio * item.cantidad).toFixed(2)}</span>
-                    <button data-id="${item.id}" class="remove-from-cart-btn bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center font-bold">-</button>
+                    <button data-id="${esc(item.id)}" class="remove-from-cart-btn bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center font-bold">-</button>
                 </div>
             `;
-            itemEl.querySelector('.remove-from-cart-btn').addEventListener('click', () => onRemoveFromCart(item.id));
             elements.cartItems.appendChild(itemEl);
             total += item.precio * item.cantidad;
         });
@@ -194,9 +201,9 @@ export function renderProductos(productos, onEdit, onDelete) {
 
         itemEl.innerHTML = `
             <div>
-                <p class="font-semibold text-lg">${producto.nombre}</p>
-                <p class="text-blue-600 font-bold">S/ ${producto.precio.toFixed(2)}</p>
-                <p class="text-sm ${stockColor}">Stock: ${stock} Uds.</p>
+                <p class="font-semibold text-lg">${esc(producto.nombre)}</p>
+                <p class="text-blue-600 font-bold">S/ ${money(producto.precio)}</p>
+                <p class="text-sm ${stockColor}">Stock: ${esc(stock)} Uds.</p>
             </div>
             <div class="flex gap-2">
                 <button class="edit-producto-btn p-2 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200">Editar</button>
@@ -230,10 +237,10 @@ export function renderClientesFiado(clientes, onShowDetails) {
         clienteEl.innerHTML = `
             <div class="flex justify-between items-center">
                 <div>
-                    <p class="font-semibold text-lg">${cliente.nombre}</p>
-                    <p class="text-sm text-gray-500">${cliente.telefono || 'Sin teléfono'}</p>
+                    <p class="font-semibold text-lg">${esc(cliente.nombre)}</p>
+                    <p class="text-sm text-gray-500">${esc(cliente.telefono || 'Sin teléfono')}</p>
                 </div>
-                <span id="deuda-total-${cliente.id}" class="text-lg font-bold ${saldoColor}">
+                <span id="deuda-total-${esc(cliente.id)}" class="text-lg font-bold ${saldoColor}">
                     S/ ${saldo.toFixed(2)}
                 </span>
             </div>
@@ -277,7 +284,7 @@ export function renderHistorialCliente(historial, saldoTotal, onMarkPaid, onDele
             clasesMonto = 'text-red-600 font-semibold';
             
             if (!estaPagada) {
-                accionesBtn = `<button data-id="${deuda.id}" class="marcar-pagado-btn p-1 bg-green-100 text-green-700 rounded-md text-xs hover:bg-green-200">Pagar</button>`;
+                accionesBtn = `<button data-id="${esc(deuda.id)}" class="marcar-pagado-btn p-1 bg-green-100 text-green-700 rounded-md text-xs hover:bg-green-200">Pagar</button>`;
             } else {
                 descripcionDisplay = `(Pagado) ${deuda.descripcion}`;
                 clasesMonto = 'text-gray-400 line-through';
@@ -288,12 +295,12 @@ export function renderHistorialCliente(historial, saldoTotal, onMarkPaid, onDele
             descripcionDisplay = `${deuda.descripcion} (${deuda.metodoPago || 'Efectivo'})`;
         }
 
-        accionesBtn += `<button data-id="${deuda.id}" class="eliminar-deuda-btn p-1 bg-gray-100 text-gray-500 rounded-md text-xs hover:bg-gray-200">X</button>`;
+        accionesBtn += `<button data-id="${esc(deuda.id)}" class="eliminar-deuda-btn p-1 bg-gray-100 text-gray-500 rounded-md text-xs hover:bg-gray-200">X</button>`;
 
         itemEl.className = `p-2 rounded-md bg-white shadow-sm flex justify-between items-center ${estaPagada ? 'opacity-60' : ''}`;
         itemEl.innerHTML = `
             <div>
-                <p class="font-medium ${estaPagada ? 'line-through' : ''}">${descripcionDisplay}</p>
+                <p class="font-medium ${estaPagada ? 'line-through' : ''}">${esc(descripcionDisplay)}</p>
                 <p class="text-xs text-gray-500">${fecha}</p>
             </div>
             <div class="flex items-center gap-2">
@@ -304,11 +311,8 @@ export function renderHistorialCliente(historial, saldoTotal, onMarkPaid, onDele
             </div>
         `;
         
-        const markPaidBtn = itemEl.querySelector('.marcar-pagado-btn');
-        if (markPaidBtn) {
-            markPaidBtn.addEventListener('click', () => onMarkPaid(deuda.id));
-        }
-        itemEl.querySelector('.eliminar-deuda-btn').addEventListener('click', () => onDeleteEntry(deuda.id));
+        // Los clics de "Pagar" y "X" se manejan por delegación en handlers.js
+        // (handleHistorialClick), que pide confirmación antes de borrar.
 
         lista.appendChild(itemEl);
     });
@@ -337,8 +341,8 @@ export function updateReporteUI(totales) {
                 itemEl.className = 'flex justify-between items-center p-2 rounded';
                 itemEl.classList.add(index % 2 === 0 ? 'bg-gray-50' : 'bg-white'); 
                 itemEl.innerHTML = `
-                    <p class="font-medium text-gray-800">${index + 1}. ${nombre}</p>
-                    <p class="font-bold text-blue-600">${cantidad} Uds.</p>
+                    <p class="font-medium text-gray-800">${index + 1}. ${esc(nombre)}</p>
+                    <p class="font-bold text-blue-600">${esc(cantidad)} Uds.</p>
                 `;
                 elements.topProductsList.appendChild(itemEl);
             });

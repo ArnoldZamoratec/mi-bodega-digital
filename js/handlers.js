@@ -41,7 +41,7 @@ export function setupEventListeners() {
         searchBar.addEventListener('input', filterAndRenderVentaRapida);
     }
 
-    document.getElementById('cart-items').addEventListener('mousedown', handleCartClick);
+    document.getElementById('cart-items').addEventListener('click', handleCartClick);
     document.getElementById('venta-form').addEventListener('submit', handleVentaFormSubmit);
     document.getElementById('venta-metodo-pago').addEventListener('change', toggleClienteFiadoSelect);
 
@@ -74,9 +74,10 @@ export function setupEventListeners() {
     const actualizarReporteBtn = document.getElementById('actualizar-reporte-btn');
 
     if (reporteFechaInicioInput && reporteFechaFinInput && actualizarReporteBtn) {
-        const today = new Date();
-        reporteFechaInicioInput.valueAsDate = today;
-        reporteFechaFinInput.valueAsDate = today;
+        // Fecha de hoy en hora de Perú (valueAsDate usa UTC y después de las 19:00 marcaba "mañana")
+        const hoyLima = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+        reporteFechaInicioInput.value = hoyLima;
+        reporteFechaFinInput.value = hoyLima;
 
         reporteFechaInicioInput.addEventListener('change', handleReporteDateChange);
         reporteFechaFinInput.addEventListener('change', handleReporteDateChange);

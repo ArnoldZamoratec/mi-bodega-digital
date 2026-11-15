@@ -14,11 +14,9 @@ export function loadReporteDelDia() {
         return;
     }
 
-    const partsInicio = fechaInicioString.split('-').map(Number);
-    const fechaInicio = new Date(partsInicio[0], partsInicio[1] - 1, partsInicio[2]);
-
-    const partsFin = fechaFinString.split('-').map(Number);
-    const fechaFin = new Date(partsFin[0], partsFin[1] - 1, partsFin[2]);
+    // Rango en hora de Perú (UTC-5, sin horario de verano), sin importar la zona del navegador
+    const fechaInicio = new Date(`${fechaInicioString}T00:00:00.000-05:00`);
+    const fechaFin = new Date(`${fechaFinString}T23:59:59.999-05:00`);
 
     if (fechaFin < fechaInicio) {
         showToast("La fecha de fin no puede ser anterior a la de inicio", true);
@@ -58,8 +56,8 @@ async function loadReporte(fechaInicio, fechaFin) {
         unsubscribeDeudas = null;
     }
 
-    const inicioTimestamp = Timestamp.fromDate(new Date(fechaInicio.setHours(0, 0, 0, 0)));
-    const finTimestamp = Timestamp.fromDate(new Date(fechaFin.setHours(23, 59, 59, 999)));
+    const inicioTimestamp = Timestamp.fromDate(fechaInicio);
+    const finTimestamp = Timestamp.fromDate(fechaFin);
 
     let totalGeneral = 0;
     let totalEfectivo = 0;
@@ -102,7 +100,7 @@ async function loadReporte(fechaInicio, fechaFin) {
             }
 
             if (venta.fecha && saleAmount > 0) {
-                const dayKey = venta.fecha.toDate().toISOString().split('T')[0];
+                const dayKey = (venta.creadaEn || venta.fecha).toDate().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
                 const currentSales = dailySalesMap.get(dayKey) || 0;
                 dailySalesMap.set(dayKey, currentSales + saleAmount);
             }
@@ -111,16 +109,19 @@ async function loadReporte(fechaInicio, fechaFin) {
         // Procesar deudas (pagos)
         deudasSnapshot.forEach(doc => {
             const deuda = doc.data();
+            // Solo abonos (monto < 0) con método conocido: gráfico y totales usan el mismo criterio
+            if (!(deuda.monto < 0)) return;
+            if (deuda.metodoPago !== 'Efectivo' && deuda.metodoPago !== 'Yape/Plin') return;
             const pagoRecibido = Math.abs(deuda.monto);
 
             if (deuda.metodoPago === 'Efectivo') {
                 totalEfectivo += pagoRecibido;
-            } else if (deuda.metodoPago === 'Yape/Plin') {
+            } else {
                 totalYape += pagoRecibido;
             }
 
             if (deuda.fecha) {
-                const dayKey = deuda.fecha.toDate().toISOString().split('T')[0];
+                const dayKey = (deuda.creadaEn || deuda.fecha).toDate().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
                 const currentSales = dailySalesMap.get(dayKey) || 0;
                 dailySalesMap.set(dayKey, currentSales + pagoRecibido);
             }
@@ -155,9 +156,8 @@ async function loadReporte(fechaInicio, fechaFin) {
 
         const qDeudas = query(getDeudasCol(),
             where("fecha", ">=", inicioTimestamp),
-            where("fecha", "<=", finTimestamp),
-            where("monto", "<", 0)
-        );
+            where("fecha", "<=", finTimestamp)
+        );  // B-06: sin filtro monto<0 (requería índice compuesto); se filtra en el cliente
 
         let ventasData = [];
         let deudasData = [];

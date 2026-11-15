@@ -1,12 +1,119 @@
 rules_version = '2';
 
+// Mi Bodega Digital — reglas de seguridad (multi-tenant por usuario).
+// Cada bodega solo puede leer/escribir artifacts/mi-bodega-app/users/{su uid}/...
+// Compatible con la web v5.3+ y la app móvil (contrato en mobile/ARCHITECTURE.md §2).
+// Base: propuesta D-12 (mobile/firebase/firestore.rules) + endurecimiento de la auditoría 2026-11.
+//
+// IMPORTANTE: probar con el emulador antes de desplegar:
+//   cd mobile/firebase && npm test     (reglas.test.mjs)
+//   firebase deploy --only firestore:rules,firestore:indexes
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Esta regla permite leer y escribir SIEMPRE
-    // si el usuario está conectado (request.auth no es nulo)
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // ---------- helpers ----------
+    function esDueno(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
+    function esNumero(v) { return v is int || v is float; }
+    function texto(v, max) { return v is string && v.size() <= max; }
+    function textoNoVacio(v, max) { return texto(v, max) && v.size() > 0; }
+    function d() { return request.resource.data; }
+    function campoOpcional(campo, max) {
+      return !(campo in d()) || texto(d()[campo], max);
+    }
+
+    match /artifacts/{appId}/users/{userId} {
+      // Solo la app oficial; evita que alguien use otros "appId" como almacenamiento gratis.
+      function appValida() { return appId == 'mi-bodega-app'; }
+      function dueno() { return appValida() && esDueno(userId); }
+
+      // ---------- productos ----------
+      match /productos/{productoId} {
+        function productoValido() {
+          return textoNoVacio(d().nombre, 120)
+            && esNumero(d().precio) && d().precio >= 0 && d().precio <= 1000000
+            && (d().stock == null || esNumero(d().stock))
+            && campoOpcional('codigoBarras', 64)
+            && campoOpcional('categoria', 60)
+            && (!('costo' in d()) || (esNumero(d().costo) && d().costo >= 0));
+        }
+        allow read, delete: if dueno();
+        // Creación: solo campos conocidos. Edición: valida tipos sin exigir lista cerrada, para que
+        // un producto heredado con campos extra se pueda seguir editando.
+        allow create: if dueno() && productoValido()
+          && d().keys().hasOnly(['nombre', 'precio', 'stock', 'codigoBarras', 'costo', 'categoria']);
+        // Venta / anulación: solo cambia el stock (increment). No se valida el resto para que un
+        // producto heredado con datos raros no bloquee una venta.
+        allow update: if dueno() && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
+            && esNumero(d().stock))
+          || productoValido()
+        );
+      }
+
+      // ---------- clientes ----------
+      match /clientes/{clienteId} {
+        allow read, delete: if dueno();
+        allow create, update: if dueno()
+          && d().keys().hasOnly(['nombre', 'telefono', 'documento', 'limiteCredito'])
+          && textoNoVacio(d().nombre, 120)
+          && campoOpcional('telefono', 30)
+          && campoOpcional('documento', 20)
+          && (!('limiteCredito' in d()) || (esNumero(d().limiteCredito) && d().limiteCredito >= 0));
+      }
+
+      // ---------- ventas (libro inmutable) ----------
+      match /ventas/{ventaId} {
+        allow read: if dueno();
+        // Se crean, nunca se editan ni borran. Una anulación es otra venta (contraasiento)
+        // con id "{venta}-anulada" y total <= 0.
+        allow create: if dueno()
+          && d().items is list && d().items.size() <= 300
+          && esNumero(d().total) && d().total <= 1000000
+          && d().metodoDePago in ['Efectivo', 'Yape/Plin', 'Fiado']
+          && d().fecha == request.time
+          && (
+            // Venta normal: con ítems, total >= 0 y cliente si es fiado
+            (!('anulaA' in d()) && d().total >= 0 && d().items.size() > 0
+              && (d().metodoDePago != 'Fiado' || d().clienteId is string))
+            // Anulación: refleja la venta original (puede ser heredada con datos incompletos)
+            || (d().anulaA is string
+                && ventaId == d().anulaA + '-anulada'
+                && d().total <= 0)
+          );
+        allow update, delete: if false;
+      }
+
+      // ---------- deudas (cargos > 0, abonos < 0) ----------
+      match /deudas/{deudaId} {
+        allow read, delete: if dueno();
+        allow create: if dueno()
+          && d().clienteId is string
+          && esNumero(d().monto) && d().monto != 0
+          && d().monto >= -1000000 && d().monto <= 1000000
+          && texto(d().descripcion, 300)
+          && d().fecha == request.time
+          && (!('pagado' in d()) || d().pagado is bool)
+          && (!('metodoPago' in d()) || d().metodoPago in ['Efectivo', 'Yape/Plin']);
+        // Solo se permite marcar un cargo heredado como pagado (false -> true).
+        allow update: if dueno()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pagado'])
+          && d().pagado == true;
+      }
+
+      // ---------- configuración del negocio ----------
+      match /config/{docId} {
+        allow read: if dueno();
+        allow write: if dueno() && docId == 'negocio'
+          && campoOpcional('nombre', 120)
+          && campoOpcional('ruc', 11)
+          && campoOpcional('direccion', 200)
+          && campoOpcional('telefono', 30);
+      }
+    }
+
+    // Todo lo demás: denegado.
   }
 }

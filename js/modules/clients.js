@@ -173,9 +173,22 @@ export async function showClienteDetalleModal(clienteId) {
 
 // --- Handlers Internos ---
 async function handleMarkAsPaid(id) {
+    // B-02: "Pagar" registra un abono real (monto negativo) por el valor del cargo, así el dinero
+    // entra al reporte de ingresos. No se marca pagado: el abono ya compensa el cargo (saldo neto 0).
     try {
         const deudaRef = doc(getDeudasCol(), id);
-        await updateDoc(deudaRef, { pagado: true });
+        const snap = await getDoc(deudaRef);
+        if (!snap.exists()) return;
+        const deuda = snap.data();
+        const metodoPago = document.getElementById('pago-metodo')?.value || 'Efectivo';
+        await addDoc(getDeudasCol(), {
+            clienteId: deuda.clienteId,
+            monto: -Math.abs(deuda.monto),
+            descripcion: `Pago de: ${deuda.descripcion}`,
+            fecha: serverTimestamp(),
+            pagado: false,
+            metodoPago
+        });
         // Toast removed - debt status changes visually
     } catch (error) {
         console.error("Error al marcar como pagado:", error);
@@ -261,10 +274,8 @@ export async function handlePagoFormSubmit(e) {
             metodoPago: metodoPago
         });
 
-        if (deudaOrigenId) {
-            const deudaRef = doc(getDeudasCol(), deudaOrigenId);
-            await updateDoc(deudaRef, { pagado: true });
-        }
+        // B-01: NO se marca el cargo origen como pagado; el abono negativo ya reduce el saldo.
+        // (Marcarlo pagado restaba el monto dos veces.) Mismo criterio que la app móvil.
 
         // Toast removed - payment appears in history, debt updates
         resetPagoForm();

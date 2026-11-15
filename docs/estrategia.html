@@ -1,0 +1,224 @@
+<title>Bodegón Digital · Estrategia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: una columna de lectura (memo de dirección) con bandas de decisión; tablas en su propio scroll */
+:root {
+  --verde: #0B6B4F; --verde-suave: #E3F0EA; --ambar: #F5A524; --ambar-suave: #FDF1DC;
+  --kraft: #FAF7F2; --papel: #FFFFFF; --tinta: #1C1917; --gris: #6B645C; --linea: #E7E1D7;
+  --ladrillo: #B42318; --ladrillo-suave: #FBE9E7;
+  --f-texto: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-dato: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --verde: #4FBF95; --verde-suave: #14302A; --ambar: #F7B54A; --ambar-suave: #3A2B12;
+  --kraft: #171513; --papel: #201D1A; --tinta: #F2EEE8; --gris: #A8A097; --linea: #34302B;
+  --ladrillo: #F2867B; --ladrillo-suave: #3A1A17; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --verde: #4FBF95; --verde-suave: #14302A; --ambar: #F7B54A; --ambar-suave: #3A2B12;
+  --kraft: #171513; --papel: #201D1A; --tinta: #F2EEE8; --gris: #A8A097; --linea: #34302B;
+  --ladrillo: #F2867B; --ladrillo-suave: #3A1A17; color-scheme: dark }
+
+body { background: var(--kraft); color: var(--tinta); font-family: var(--f-texto); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--verde); }
+.muted { color: var(--gris); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+section { display: flex; flex-direction: column; gap: 18px; padding-top: 44px; margin-top: 44px; border-top: 1px solid var(--linea); }
+header.hero { display: flex; flex-direction: column; gap: 16px; }
+.tesis { font-size: 1.2rem; font-weight: 500; }
+.tesis strong { color: var(--verde); }
+.toldo { height: 10px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--verde) 0 28px, var(--ambar) 28px 56px); max-width: 280px; }
+
+.decision { background: var(--papel); border: 1px solid var(--linea); border-left: 5px solid var(--verde); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.decision .tag { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--verde); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.plan { background: var(--papel); border: 1px solid var(--linea); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.plan.destacado { border: 2px solid var(--verde); }
+.precio { font-family: var(--f-dato); font-size: 1.6rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.precio small { font-family: var(--f-texto); font-size: .85rem; color: var(--gris); }
+.plan ul, .lista { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.chip { display: inline-block; font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--ambar-suave); color: var(--tinta); width: fit-content; }
+.chip.ok { background: var(--verde-suave); color: var(--verde); }
+.chip.crit { background: var(--ladrillo-suave); color: var(--ladrillo); }
+
+.tabla { overflow-x: auto; border: 1px solid var(--linea); border-radius: 10px; background: var(--papel); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: .92rem; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+th { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); font-weight: 700; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--f-dato); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.fases { display: flex; flex-direction: column; gap: 12px; }
+.fase { display: grid; grid-template-columns: 110px 1fr; gap: 16px; background: var(--papel); border: 1px solid var(--linea); border-radius: 10px; padding: 16px 18px; }
+.fase .cuando { font-family: var(--f-dato); font-size: .85rem; color: var(--verde); font-weight: 500; }
+@media (max-width: 560px) { .fase { grid-template-columns: 1fr; gap: 6px; } }
+
+.check { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.check li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+.check li::before { content: "✓"; color: var(--verde); font-weight: 800; }
+.pide li::before { content: "→"; color: var(--ambar); }
+.nota { font-size: .85rem; color: var(--gris); }
+pre.mermaid { background: var(--papel); border: 1px solid var(--linea); border-radius: 10px; padding: 16px; overflow-x: auto; }
+a { color: var(--verde); }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="toldo" aria-hidden="true"></div>
+  <span class="eyebrow">Plan de dirección · 15 nov 2026</span>
+  <h1>Bodegón Digital: el cuaderno de fiados que se convierte en historial crediticio</h1>
+  <p class="tesis">Ganamos la bodega con lo que ya le duele, <strong>el fiado y la caja</strong>. Cobramos por <strong>orden y formalidad</strong>. La escala viene de los <strong>datos de ventas</strong>: crédito para el bodeguero y visibilidad para las marcas, sin cargar inventario ni camiones.</p>
+  <p class="muted">Basado en cuatro auditorías: seguridad, web, app móvil y mercado LATAM. Las cifras con (?) vienen de una sola fuente o se contradicen entre fuentes.</p>
+</header>
+
+<section>
+  <span class="eyebrow">1 · El mercado</span>
+  <h2>Por qué la oportunidad es real y por qué otros fallaron</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Dato</th><th>Valor</th><th>Implicancia</th></tr></thead>
+    <tbody>
+      <tr><td>Bodegas en Perú</td><td class="num">400–535 mil (?)</td><td>Unas 70 % las dirigen mujeres. Unas 3 mil cierran al año por extorsión.</td></tr>
+      <tr><td>Tiendas de barrio en Colombia y México</td><td class="num">≈ 0,5 M y ≈ 1 M</td><td>Hay mercado para expandirse, pero cada país tiene otro régimen tributario.</td></tr>
+      <tr><td>Bodegas de Lima que aceptan Yape o Plin</td><td class="num">60–70 %</td><td>El dueño ya usa el celular para su plata. La barrera no es el teléfono.</td></tr>
+      <tr><td>Bodegas que usan una app de gestión</td><td class="num">28–40 % (?)</td><td>Más de la mitad sigue con cuaderno.</td></tr>
+      <tr><td>Treinta: usuarios que pagan</td><td class="num">≈ 30 mil de 350 mil</td><td>Solo pagan unos 9 de cada 100. No hay que construir para quien nunca pagará.</td></tr>
+      <tr><td>Frubana, Jüsto, marketplace de Treinta</td><td class="num">Cerrados</td><td>Tener inventario y logística quema capital. Nos quedamos en software y datos.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Ya están ocupados el pedido a distribuidor (Diadía de Alicorp, BEES de Backus) y el cobro (Yape). Nadie domina el <strong>fiado digital</strong> ni el <strong>cierre de caja</strong> de la bodega pequeña, y Bodegón entra por ahí.</p>
+</section>
+
+<section>
+  <span class="eyebrow">2 · Decisiones tomadas</span>
+  <h2>Cinco decisiones que guían todo lo demás</h2>
+  <div class="stack">
+    <div class="decision"><span class="tag">D1 · Cuña de entrada</span><h3>Fiado primero, POS después</h3><p>El fiado es el dolor diario más caro: plata que se olvida y vecinos que no pagan. Con recordatorios amables por WhatsApp y un saldo claro, el bodeguero recupera dinero desde la primera semana. Esa es la razón para volver a abrir la app.</p></div>
+    <div class="decision"><span class="tag">D2 · Monetización</span><h3>Freemium honesto, con el pago atado a la formalidad y al trabajo en equipo</h3><p>Lo esencial es gratis para siempre. Se cobra cuando el negocio crece: un cajero además del dueño, la boleta electrónica de SUNAT o un segundo local. Así el precio llega cuando la bodega ya gana más.</p></div>
+    <div class="decision"><span class="tag">D3 · Escala</span><h3>Los datos son el producto de largo plazo, siempre con consentimiento</h3><p>Las ventas y el fiado forman un historial que hoy ningún banco ve. Con autorización explícita del dueño (Ley 29733), ese historial permite <em>referir</em> crédito de capital de trabajo a un socio financiero y vender a las marcas de consumo datos agregados y anónimos de sell-out. No prestamos con plata propia.</p></div>
+    <div class="decision"><span class="tag">D4 · Tecnología</span><h3>Un solo núcleo de negocio para la web y la app</h3><p>Hoy la web y la app calculan saldos y totales cada una por su lado, y por eso se desincronizaban (bug B-01). Se extrae el <code>domain/</code> de la app móvil, que ya está probado con 121 tests, a un paquete compartido, y la web migra a Vite + TypeScript usando ese mismo núcleo.</p></div>
+    <div class="decision"><span class="tag">D5 · Expansión</span><h3>Perú hasta tener tracción, luego Colombia y después México</h3><p>No se abre otro país hasta tener 2 000 bodegas activas por semana y retención a 3 meses de 40 % o más en Perú. Cada país necesita su propio módulo de pagos (Nequi, CoDi) y de facturación (DIAN, SAT).</p></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">3 · Planes y precios (Perú)</span>
+  <h2>Más barato que Treinta y con el fiado como protagonista</h2>
+  <div class="grid">
+    <div class="plan"><span class="chip ok">Gratis para siempre</span><h3>Bodega</h3><div class="precio">S/ 0</div>
+      <ul><li>POS con escáner, ventas sin internet</li><li>Inventario y alertas de stock</li><li>Fiado ilimitado con saldo en vivo</li><li>Reporte del día</li><li>1 usuario</li></ul></div>
+    <div class="plan destacado"><span class="chip">El que más se vende</span><h3>Bodega Pro</h3><div class="precio">S/ 19.90 <small>/ mes · S/ 199 al año</small></div>
+      <ul><li>Recordatorios de fiado por WhatsApp</li><li>Cajeros con permisos (hasta 3)</li><li>Apertura y cierre de caja, vuelto, descuentos</li><li>Reportes por rango, margen y exportación a Excel</li><li>Copia de seguridad y soporte por WhatsApp</li></ul></div>
+    <div class="plan"><span class="chip">Formalización</span><h3>Bodegón</h3><div class="precio">S/ 49.90 <small>/ mes</small></div>
+      <ul><li>Todo lo de Pro</li><li>Boleta y factura electrónica SUNAT, hasta 500 al mes, mediante un OSE aliado</li><li>Varios locales y usuarios ilimitados</li><li>Compras a proveedores y costo promedio</li></ul></div>
+  </div>
+  <p class="nota">Referencias: Treinta cobra S/ 34.99 y S/ 69.99 (?), y un proveedor OSE o PSE cuesta entre S/ 50 y 70 al mes por cerca de 500 comprobantes. Desde junio de 2026 quien sale del Nuevo RUS emite comprobantes electrónicos de inmediato, y es justo cuando necesita el plan Bodegón.</p>
+</section>
+
+<section>
+  <span class="eyebrow">4 · Fuentes de ingreso</span>
+  <h2>Cuatro capas, en orden de llegada</h2>
+  <div class="tabla"><table>
+    <thead><tr><th>Capa</th><th>Cómo cobra</th><th>Desde</th><th>Meta a 24 meses</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. Suscripción</strong></td><td>Pro y Bodegón, mensual o anual (con Culqi o Mercado Pago en la web y la tienda de apps en el móvil)</td><td class="num">Mes 4</td><td class="num">4 000 pagantes · ≈ S/ 1 M ARR</td></tr>
+      <tr><td><strong>2. Comprobantes</strong></td><td>Margen sobre el OSE, más un paquete de comprobantes extra</td><td class="num">Mes 6</td><td>20 % de los pagantes</td></tr>
+      <tr><td><strong>3. Crédito embebido</strong></td><td>Comisión por referir a un socio (caja municipal, fintech o billetera) con la puntuación Bodegón, siempre con consentimiento</td><td class="num">Mes 12</td><td>La capa de mayor ingreso por bodega</td></tr>
+      <tr><td><strong>4. Marcas (CPG)</strong></td><td>Datos agregados y anónimos de sell-out y promociones patrocinadas dentro de la app</td><td class="num">Mes 15</td><td>Requiere al menos 5 000 bodegas activas para tener valor</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Lo que no haremos:</strong> tener inventario, reparto, prestar con balance propio ni vender datos individuales.</p>
+</section>
+
+<section>
+  <span class="eyebrow">5 · Cómo llegamos a las bodegas</span>
+  <h2>Barato, por WhatsApp y de bodeguero a bodeguero</h2>
+  <ul class="lista">
+    <li><strong>Piloto con 50 bodegas</strong> en un distrito de Lima Norte o Este. Se acompaña la primera semana y se mide si el dueño vuelve a abrir la app.</li>
+    <li><strong>Embajadores:</strong> bodegueros referentes que ganan meses de Pro por cada bodega activa que refieren.</li>
+    <li><strong>Gremios:</strong> AGREMUB y la Asociación de Bodegueros del Perú, con capacitaciones y un precio de gremio.</li>
+    <li><strong>Crecimiento viral natural:</strong> cada recordatorio de fiado por WhatsApp lleva la marca "Enviado con Bodegón", y los vecinos también son bodegueros.</li>
+    <li>Objetivo de economía unitaria: costo de adquisición menor a S/ 60 por bodega pagante y recuperación en menos de 4 meses.</li>
+  </ul>
+  <div class="tabla"><table>
+    <thead><tr><th>Métrica norte</th><th>Definición</th><th>Meta del piloto</th></tr></thead>
+    <tbody>
+      <tr><td>Bodegas activas por semana</td><td>Registran 20 o más ventas o movimientos de fiado en la semana</td><td class="num">35 de 50</td></tr>
+      <tr><td>Fiado recuperado</td><td>Soles abonados después de un recordatorio</td><td class="num">S/ 300 por bodega al mes</td></tr>
+      <tr><td>Retención M3</td><td>Siguen activas en la semana 12</td><td class="num">≥ 40 %</td></tr>
+      <tr><td>Conversión a pago</td><td>Pasan a Pro antes del día 60</td><td class="num">≥ 10 %</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <span class="eyebrow">6 · Arquitectura objetivo</span>
+  <h2>Un núcleo de negocio, dos clientes y un backend con autoridad</h2>
+<pre class="mermaid">
+flowchart LR
+  subgraph Clientes
+    W[Web · Vite + TS]
+    M[App · Expo + RN]
+  end
+  C[[packages/core<br/>reglas de negocio · céntimos · fiado FIFO]]
+  W --> C
+  M --> C
+  C --> FS[(Firestore<br/>bodegas/&#123;id&#125;/...)]
+  FS --> CF[Cloud Functions<br/>confirmar venta · resumen diario · roles]
+  CF --> OSE[OSE SUNAT<br/>boleta / factura]
+  CF --> WA[WhatsApp<br/>recordatorios]
+  FS --> BQ[(BigQuery<br/>score · sell-out anónimo)]
+</pre>
+  <div class="tabla"><table>
+    <thead><tr><th>Hoy</th><th>Objetivo</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td><code>users/{uid}</code>: un dueño por cuenta</td><td><code>bodegas/{id}</code> con <code>miembros/{uid}</code> y rol (dueño o cajero)</td><td>Cajeros, varios locales y planes por bodega</td></tr>
+      <tr><td>Totales calculados en el teléfono</td><td>Una Cloud Function valida la venta y escribe <code>resumenDiario</code></td><td>Cuentas que no se pueden manipular y reportes que cuestan una lectura</td></tr>
+      <tr><td>Web en JS sin tests</td><td>Vite + TS sobre <code>packages/core</code></td><td>La web y la app ya no pueden contradecirse</td></tr>
+      <tr><td>Un solo proyecto de Firebase</td><td>Proyectos dev y prod, CI con <code>verify</code> y pruebas de reglas, App Check</td><td>No se prueba sobre datos de clientes reales</td></tr>
+      <tr><td>Solo soles</td><td>Moneda ISO 4217 e IGV por producto</td><td>Preparado para Colombia y México</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <span class="eyebrow">7 · Hoja de ruta</span>
+  <h2>Los próximos 12 meses</h2>
+  <div class="fases">
+    <div class="fase"><span class="cuando">Sem 0–2</span><div class="stack"><h3>Blindaje <span class="chip ok">en curso</span></h3><p>Desplegar las reglas multi-tenant, el hosting limpio y los arreglos de la web. Crear el proyecto de Firebase dev, restringir la API key, firmar la app con una clave de release y activar App Check.</p></div></div>
+    <div class="fase"><span class="cuando">Sem 2–6</span><div class="stack"><h3>Núcleo compartido y web nueva</h3><p>Crear el monorepo con <code>packages/core</code>, migrar la web a Vite + TS, añadir CI y publicar la PWA instalable.</p></div></div>
+    <div class="fase"><span class="cuando">Sem 4–8</span><div class="stack"><h3>El producto que retiene</h3><p>Recordatorios de fiado por WhatsApp, cierre de caja y ticket por WhatsApp. Arranca el piloto con 50 bodegas.</p></div></div>
+    <div class="fase"><span class="cuando">Mes 3–4</span><div class="stack"><h3>Bodegas con equipo y cobro</h3><p>Migrar a <code>bodegas/{id}</code> con roles, Cloud Functions y el plan Pro con pagos. Primeros ingresos.</p></div></div>
+    <div class="fase"><span class="cuando">Mes 5–7</span><div class="stack"><h3>Formalización</h3><p>Integrar un OSE (por ejemplo Nubefact) con series en el servidor, notas de crédito y el plan Bodegón.</p></div></div>
+    <div class="fase"><span class="cuando">Mes 9–12</span><div class="stack"><h3>Datos con valor</h3><p>Exportar a BigQuery, construir la puntuación Bodegón y el piloto de crédito con un socio financiero. Primer reporte de sell-out para una marca.</p></div></div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">8 · Estado de hoy</span>
+  <h2>Lo que ya quedó hecho en esta sesión</h2>
+  <ul class="check">
+    <li><span><strong>Reglas de Firestore multi-tenant:</strong> cada bodega solo ve sus propios datos, se validan tipos y tamaños y las ventas no se pueden editar. Pasan las 15 pruebas de compatibilidad con la web y la app. <span class="chip crit">falta desplegar</span></span></li>
+    <li><span><strong>Hosting:</strong> ya no publica el código de la app, los documentos ni los respaldos, y lleva cabeceras de seguridad.</span></li>
+    <li><span><strong>Web:</strong> sin XSS, ventas atómicas en una transacción, sin ventas duplicadas, abonos que ya no restan dos veces, "Pagar" que registra el ingreso, reportes en hora de Perú y sin índice faltante.</span></li>
+    <li><span><strong>Limpieza:</strong> se eliminaron archivos muertos (backups, scripts y código generado sin uso).</span></li>
+  </ul>
+  <h3>Lo que necesito de ti</h3>
+  <ul class="check pide">
+    <li><span>Tu autorización para <strong>desplegar las reglas y el hosting</strong> a <code>bodega-difital</code>. Afecta a usuarios reales.</span></li>
+    <li><span>Revisar en la consola de Firebase si existe una instancia de Cloud SQL creada por <code>dataconnect/</code>, porque cobra aunque no se use.</span></li>
+    <li><span>Crear un proyecto de Firebase de desarrollo y pasar a plan Blaze cuando lleguemos a Cloud Functions.</span></li>
+    <li><span>Instalar Java 21 para el emulador nuevo. Hoy probé con una versión anterior del CLI.</span></li>
+    <li><span>Buscar "Bodegón" en INDECOPI (clases 9, 35 y 42) antes de invertir en la marca.</span></li>
+  </ul>
+</section>
+
+</div>

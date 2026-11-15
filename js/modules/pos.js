@@ -1,4 +1,4 @@
-import { onSnapshot, query, updateDoc, doc, increment, addDoc, serverTimestamp } from '../firebase.js?v=5.3';
+import { onSnapshot, query, doc, increment, serverTimestamp, runTransaction, db } from '../firebase.js?v=5.3';
 import {
     getProductosCol,
     getVentasCol,
@@ -11,6 +11,7 @@ import {
 import { showToast, renderVentaRapida, renderCart, resetVentaForm } from '../ui.js?v=5.3';
 
 let allProducts = [];
+let ventaEnCurso = false;
 
 function handleAddToCart(producto) {
     addToCartState({
@@ -82,39 +83,53 @@ export async function handleVentaFormSubmit(e) {
         return;
     }
 
-    try {
-        const venta = {
-            items: cart.map(item => ({ ...item })),
-            total: total,
-            metodoDePago: metodoDePago,
-            clienteId: metodoDePago === 'Fiado' ? clienteId : null,
-            fecha: serverTimestamp()
-        };
-        const ventaDoc = await addDoc(getVentasCol(), venta);
+    const submitBtn = e.submitter || e.target.querySelector('[type="submit"]');
+    if (ventaEnCurso) return; // evita ventas duplicadas por doble clic
+    ventaEnCurso = true;
+    if (submitBtn) submitBtn.disabled = true;
 
-        if (metodoDePago === 'Fiado' && clienteId) {
-            let descripcionDeuda = cart.map(item => `${item.nombre} (x${item.cantidad})`).join(', ');
-            if (descripcionDeuda.length > 100) {
-                descripcionDeuda = descripcionDeuda.substring(0, 97) + '...';
+    try {
+        // Céntimos enteros para evitar errores de redondeo (0.1 + 0.2)
+        const totalCent = cart.reduce((sum, item) => sum + Math.round(item.precio * 100) * item.cantidad, 0);
+        const totalSoles = totalCent / 100;
+
+        // Transacción atómica: venta + cargo de fiado + stock, todo o nada.
+        await runTransaction(db, async (tx) => {
+            const refs = cart.map(item => doc(getProductosCol(), item.id));
+            const snaps = await Promise.all(refs.map(r => tx.get(r)));
+
+            const ventaRef = doc(getVentasCol());
+            tx.set(ventaRef, {
+                items: cart.map(item => ({ ...item })),
+                total: totalSoles,
+                metodoDePago: metodoDePago,
+                clienteId: metodoDePago === 'Fiado' ? clienteId : null,
+                fecha: serverTimestamp()
+            });
+
+            if (metodoDePago === 'Fiado' && clienteId) {
+                let descripcionDeuda = cart.map(item => `${item.nombre} (x${item.cantidad})`).join(', ');
+                if (descripcionDeuda.length > 100) {
+                    descripcionDeuda = descripcionDeuda.substring(0, 97) + '...';
+                }
+                tx.set(doc(getDeudasCol()), {
+                    clienteId: clienteId,
+                    monto: totalSoles,
+                    descripcion: descripcionDeuda,
+                    fecha: serverTimestamp(),
+                    ventaId: ventaRef.id,
+                    pagado: false
+                });
             }
 
-            await addDoc(getDeudasCol(), {
-                clienteId: clienteId,
-                monto: total,
-                descripcion: descripcionDeuda,
-                fecha: serverTimestamp(),
-                ventaId: ventaDoc.id,
-                pagado: false
-            });
-        }
-
-        const updatePromises = cart.map(item => {
-            const productoRef = doc(getProductosCol(), item.id);
-            return updateDoc(productoRef, {
-                stock: increment(-item.cantidad)
+            // Solo descuenta stock de productos que existen y tienen stock controlado (no null)
+            snaps.forEach((snap, i) => {
+                if (!snap.exists()) return;
+                const stock = snap.data().stock;
+                if (stock === null || stock === undefined) return;
+                tx.update(refs[i], { stock: increment(-cart[i].cantidad) });
             });
         });
-        await Promise.all(updatePromises);
 
         clearCart();
         renderCart(getCart(), handleRemoveFromCart);
@@ -124,5 +139,8 @@ export async function handleVentaFormSubmit(e) {
     } catch (error) {
         console.error("Error al registrar venta: ", error);
         showToast("Error al registrar la venta", true);
+    } finally {
+        ventaEnCurso = false;
+        if (submitBtn) submitBtn.disabled = false;
     }
 }

@@ -28,6 +28,7 @@ import {
     where,
     serverTimestamp,
     Timestamp,
+    runTransaction,
     increment,
     getDocs
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -82,6 +83,7 @@ export {
     where,
     serverTimestamp,
     Timestamp,
+    runTransaction,
     increment,
     getDocs
 };
