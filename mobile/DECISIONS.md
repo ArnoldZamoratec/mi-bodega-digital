@@ -12,7 +12,7 @@ Las propuestas de la Fase 0 fueron aprobadas por el dueño del proyecto; solo D-
 - **Descartado:** WebView/Capacitor (prohibido), Flutter (otra base de lenguaje).
 - **Consecuencias:** builds con EAS; iOS solo vía nube desde Windows (R-02).
 
-### D-02 · La app vive en `mobile/` del mismo repositorio — Vigente
+### D-02 · La app vive en `mobile/` del mismo repositorio — Reemplazada por D-27 (la app sigue en `mobile/`; el "sin workspaces" ya no aplica)
 - **Contexto:** la web sigue en producción sobre los mismos datos.
 - **Decisión:** carpeta `mobile/` independiente (su propio `package.json`). La web no se modifica.
 - **Descartado:** repo nuevo (pierde trazabilidad con la lógica original); monorepo con workspaces (la web no tiene build, no aporta).
@@ -154,4 +154,13 @@ service cloud.firestore {
 - **Fecha efectiva:** `fechaEfectiva = creadaEn ?? fecha` (`rules/reportes.ts`). Si `creadaEn` es posterior a `fecha` (reloj adelantado) o más de 3 días anterior (reloj atrasado u outbox muy viejo), manda `fecha`. Así cada documento cae en un solo día.
 - **Consultas:** se sigue filtrando por `fecha` (índice simple, sin índices nuevos) pero desde el inicio del rango hasta fin + 3 días (`rangoConsulta`), y luego se filtra en memoria por fecha efectiva (`enRangoEfectivo`). El margen de 3 días es el mismo que acota `fechaEfectiva`, por lo que nada queda fuera. Costo: el reporte lee hasta 3 días extra de documentos.
 - **Día:** se agrupa por día local del teléfono (B-04), que en Perú es America/Lima.
-- **Compatibilidad:** documentos de la web y antiguos no tienen `creadaEn` y siguen usando `fecha`. La web aún agrupa por `fecha`; para alinearla, debería usar `creadaEn ?? fecha` igual que aquí.
+- **Compatibilidad:** documentos de la web y antiguos no tienen `creadaEn` y siguen usando `fecha`. Desde D-27 la web usa la misma `fechaEfectiva` del core (con los resguardos) y el mismo `rangoConsulta`.
+
+### D-27 · Monorepo con un solo núcleo de negocio (`@bodegon/core`) — Vigente
+- **Problema:** la web (JS propio) y la app (dominio TS) calculaban saldos, FIFO, reportes y fechas por separado y se podían contradecir (la web agrupaba por `creadaEn || fecha` sin resguardos, ofrecía "Pagar" en cargos ya cubiertos por abonos y sumaba en coma flotante).
+- **Decisión:** npm workspaces en la raíz: `packages/*`, `web`, `mobile`. `mobile/src/domain` pasó a `packages/core/src` (`git mv`) como paquete `@bodegon/core`: TS puro, sin React ni Firebase, con su propio `tsconfig` y Jest (babel-jest). La web (Vite + TS) lo importa como `@bodegon/core`; la app lo sigue importando como `@/domain/...`.
+- **Alias en móvil:** `tsconfig.json` `paths` (`@/domain/*` → `../packages/core/src/*`, antes que `@/*`) y Jest `moduleNameMapper` en el mismo orden. Metro: **sin** `watchFolders`/`nodeModulesPaths` manuales; la guía de Expo (SDK 52+) los configura solos en monorepos y pide no fijarlos. Metro resuelve el alias con los `paths` de tsconfig. Verificado con `npx expo export --platform android`.
+- **Por qué `mobile` entra en workspaces:** probado sin romper Metro, Jest (127 pruebas: 57 en móvil + 70 movidas al core) ni ESLint. Un solo `node_modules` en la raíz sin duplicados de `react`, `react-native`, `firebase` ni `typescript` (`npm ls`). Se eliminó `mobile/package-lock.json`.
+- **Agregado al core:** `rules/recordatorio.ts` (mensaje y enlace de WhatsApp, antes armado dentro de `ClienteDetalleScreen`; ahora lo usan web y app) y `rules/fechasLima.ts` (día de Lima independiente de la zona del navegador). `generarReporte` acepta la función de clave de día (móvil: día local; web: `claveDiaLima`).
+- **Cobertura:** el umbral ≥ 70 % del dominio se mide en `packages/core` (`npm run test:coverage -w @bodegon/core`). Los casos de uso del core se ejercitan en `mobile/src/__tests__/integracion`.
+- **Consecuencia:** `npm install` va en la raíz. Las builds locales de Android en Windows deben copiar el repo completo a la ruta corta (README móvil).

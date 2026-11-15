@@ -26,10 +26,17 @@ campos: la web y la app pueden usarse a la vez sobre los mismos datos.
 
 ```bash
 git clone https://github.com/ArnoldZamoratec/mi-bodega-digital.git
-cd mi-bodega-digital/mobile
-npm install
+cd mi-bodega-digital
+npm install               # en la RAÍZ: npm workspaces (packages/core, web, mobile)
+cd mobile
 cp .env.example .env      # en Windows: copy .env.example .env
 ```
+
+> **Monorepo.** Las reglas de negocio (`@/domain/...`) viven en `../packages/core/src`
+> (paquete `@bodegon/core`, compartido con la web). El alias está en `tsconfig.json` (`paths`)
+> y en Jest (`moduleNameMapper`); Metro lo resuelve con los `paths` de tsconfig, y
+> `metro.config.js` usa la configuración automática de monorepos de Expo (SDK 52+). Las
+> dependencias se instalan una sola vez en la raíz (ya no hay `mobile/package-lock.json`).
 
 ## 3. Configuración de Firebase
 
@@ -116,10 +123,11 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 > `subst` **no** sirve (las dependencias se resuelven con la ruta real). Lo probado y que funciona:
 > 1. El plugin `plugins/rutasCortasWindows.js` (ya activo en `app.config.ts`) mueve el
 >    directorio de trabajo de CMake a `C:/r` (lo más corto posible: el límite de carpetas de ninja es 248).
-> 2. Además, el proyecto debe estar en una ruta corta, por ejemplo `C:\mb`:
+> 2. Además, el proyecto debe estar en una ruta corta, por ejemplo `C:\mb`. Copia el **repo
+>    completo** (la app usa `packages/core` y el `package-lock.json` de la raíz):
 > ```powershell
-> robocopy "C:\ruta\larga\mi-bodega-digital\mobile" C:\mb /E /XD node_modules android coverage .expo /XF *.log
-> cd C:\mb; npm ci; npx expo prebuild --platform android --clean
+> robocopy "C:\ruta\larga\mi-bodega-digital" C:\mb /E /XD node_modules android coverage .expo .git dist /XF *.log
+> cd C:\mb; npm ci; cd mobile; npx expo prebuild --platform android --clean
 > cd android
 > .\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a   # teléfonos modernos (más rápido)
 > .\gradlew.bat assembleRelease                                        # todas las arquitecturas

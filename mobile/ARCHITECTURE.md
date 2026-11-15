@@ -181,9 +181,12 @@ Pila raíz (native-stack)
 
 ### 3.2 Estructura de carpetas (implementada)
 
+> Desde D-27, `domain/` vive en `../packages/core/src` (`@bodegon/core`, compartido con la web)
+> y se importa con el alias `@/domain/...`. El árbol de abajo mantiene la vista lógica.
+
 ```
 src/
-├── domain/
+├── domain/        → ../packages/core/src (alias)
 │   ├── entities.ts · errors.ts · ports.ts
 │   ├── rules/      dinero · carrito · productos · venta · fiado · reportes
 │   ├── usecases/   registrarVenta · sincronizarVentas · fiado
