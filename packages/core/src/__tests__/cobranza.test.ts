@@ -56,7 +56,7 @@ describe('WhatsApp', () => {
 
   it('mensaje respetuoso: saluda por el nombre, dice el saldo y agradece; sin palabras duras', () => {
     const m = mensajeRecordatorio({ nombreCliente: 'Rosa Quispe', saldo: 12.5 });
-    expect(m).toBe('Hola Rosa, te saluda tu bodega. Tu saldo pendiente es S/ 12.50. ¡Gracias!');
+    expect(m).toBe('Hola Rosa, te saluda tu bodega. Te recordamos con cariño que tu saldo pendiente es S/ 12.50. Cuando puedas, te esperamos. ¡Gracias!');
     expect(m).not.toMatch(/deuda|moros|urgente|debe/i);
   });
 

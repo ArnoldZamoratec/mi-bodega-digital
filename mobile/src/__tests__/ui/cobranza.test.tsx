@@ -104,7 +104,7 @@ describe('Cobranza', () => {
     const url = String(abrirUrl.mock.calls[0]?.[0]);
     expect(url.startsWith('https://wa.me/51987654321?text=')).toBe(true);
     expect(decodeURIComponent(url.split('text=')[1] ?? '')).toBe(
-      'Hola Ana, te saluda tu bodega. Tu saldo pendiente es S/ 12.50. ¡Gracias!',
+      'Hola Ana, te saluda tu bodega. Te recordamos con cariño que tu saldo pendiente es S/ 12.50. Cuando puedas, te esperamos. ¡Gracias!',
     );
     expect(recordatorios.registrados.map((r) => r.clienteId)).toEqual(['a']);
 

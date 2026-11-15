@@ -38,7 +38,8 @@ export function mensajeRecordatorio({
   saldo,
   nombreBodega,
 }: DatosRecordatorio): string {
-  const cliente = nombreCliente.trim();
+  // Primer nombre: "Hola Rosa" suena a vecino, "Hola Rosa Quispe" suena a cobranza formal.
+  const cliente = nombreCliente.trim().split(/\s+/)[0] ?? '';
   const saludo = cliente ? `Hola ${cliente}` : 'Hola';
   const bodega = nombreBodegaUtil(nombreBodega);
   const firma = bodega ? `te saluda ${bodega}` : 'te saluda tu bodega';
