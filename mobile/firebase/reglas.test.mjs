@@ -429,3 +429,159 @@ describe('endurecimiento (auditoría 2026-11)', () => {
     );
   });
 });
+
+describe('cobranza (D-27): clientes.ultimoRecordatorio', () => {
+  it('se puede anotar un Timestamp y la web sigue editando el cliente', async () => {
+    const db = comoAna();
+    const hace = Timestamp.fromMillis(Date.now() - 60 * 60 * 1000); // enviado sin red
+    await assertSucceeds(
+      updateDoc(doc(db, `${base('ana')}/clientes/rosa`), { ultimoRecordatorio: hace }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, `${base('ana')}/clientes/rosa`), { nombre: 'Rosa M.', telefono: '1' }),
+    );
+    await assertSucceeds(
+      setDoc(doc(db, `${base('ana')}/clientes/nuevo`), {
+        nombre: 'Nuevo',
+        telefono: '',
+        ultimoRecordatorio: Timestamp.now(),
+      }),
+    );
+  });
+
+  it('rechaza texto, fechas muy futuras y escrituras ajenas', async () => {
+    const ref = (db) => doc(db, `${base('ana')}/clientes/rosa`);
+    await assertFails(updateDoc(ref(comoAna()), { ultimoRecordatorio: 'ayer' }));
+    await assertFails(
+      updateDoc(ref(comoAna()), {
+        ultimoRecordatorio: Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      }),
+    );
+    await assertFails(updateDoc(ref(comoBeto()), { ultimoRecordatorio: Timestamp.now() }));
+  });
+});
+
+describe('caja (D-28)', () => {
+  const cajaRef = (db, id = 'c1') => doc(db, `${base('ana')}/cajas/${id}`);
+  const movRef = (db, id = 'm1', cajaId = 'c1') =>
+    doc(db, `${base('ana')}/cajas/${cajaId}/movimientos/${id}`);
+  const apertura = (extra = {}) => ({
+    estado: 'abierta',
+    apertura: { monto: 50, fecha: serverTimestamp(), creadaEn: Timestamp.now(), ...extra },
+    origen: 'movil',
+  });
+  const cierre = (extra = {}) => ({
+    estado: 'cerrada',
+    cierre: {
+      contado: 58,
+      esperado: 60,
+      diferencia: -2,
+      fecha: serverTimestamp(),
+      creadaEn: Timestamp.now(),
+      ...extra,
+    },
+  });
+  const movimiento = (extra = {}) => ({
+    tipo: 'egreso',
+    monto: 7,
+    motivo: 'Pago al panadero',
+    fecha: serverTimestamp(),
+    creadaEn: Timestamp.now(),
+    ...extra,
+  });
+
+  it('flujo de la app: abrir, egreso y cerrar con transacciones idempotentes', async () => {
+    const db = comoAna();
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        await tx.get(cajaRef(db));
+        tx.set(cajaRef(db), apertura());
+      }),
+    );
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        await tx.get(movRef(db));
+        tx.set(movRef(db), movimiento());
+      }),
+    );
+    await assertSucceeds(
+      runTransaction(db, async (tx) => {
+        await tx.get(cajaRef(db));
+        tx.update(cajaRef(db), cierre());
+      }),
+    );
+    await assertSucceeds(getDoc(cajaRef(db)));
+    await assertSucceeds(getDoc(movRef(db)));
+  });
+
+  it('una caja cerrada es inmutable: no se reabre, recierra, recibe movimientos ni se borra', async () => {
+    const db = comoAna();
+    await assertSucceeds(setDoc(cajaRef(db), apertura()));
+    await assertSucceeds(updateDoc(cajaRef(db), cierre()));
+    await assertFails(updateDoc(cajaRef(db), { estado: 'abierta' }));
+    await assertFails(updateDoc(cajaRef(db), cierre({ contado: 60, diferencia: 0 })));
+    await assertFails(setDoc(movRef(db, 'tarde'), movimiento()));
+    await assertFails(deleteDoc(cajaRef(db)));
+  });
+
+  it('valida la apertura: estado, monto, fecha del servidor y claves conocidas', async () => {
+    const db = comoAna();
+    await assertFails(setDoc(cajaRef(db, 'a'), { ...apertura(), estado: 'cerrada' }));
+    await assertFails(setDoc(cajaRef(db, 'b'), apertura({ monto: -1 })));
+    await assertFails(setDoc(cajaRef(db, 'c'), apertura({ monto: '50' })));
+    await assertFails(setDoc(cajaRef(db, 'd'), apertura({ monto: 100001 })));
+    await assertFails(setDoc(cajaRef(db, 'e'), apertura({ fecha: Timestamp.now() })));
+    await assertFails(setDoc(cajaRef(db, 'f'), { ...apertura(), extra: true }));
+    await assertFails(setDoc(cajaRef(db, 'g'), apertura({ otro: 1 })));
+    await assertFails(
+      setDoc(
+        cajaRef(db, 'h'),
+        apertura({ creadaEn: Timestamp.fromMillis(Date.now() + 3 * 24 * 60 * 60 * 1000) }),
+      ),
+    );
+    // Sin creadaEn (opcional) y con monto 0 es válido.
+    await assertSucceeds(
+      setDoc(cajaRef(db, 'ok'), {
+        estado: 'abierta',
+        apertura: { monto: 0, fecha: serverTimestamp() },
+      }),
+    );
+  });
+
+  it('valida el cierre: diferencia coherente, tipos y solo estado + cierre', async () => {
+    const db = comoAna();
+    await assertSucceeds(setDoc(cajaRef(db), apertura()));
+    await assertFails(updateDoc(cajaRef(db), cierre({ diferencia: 5 })));
+    await assertFails(updateDoc(cajaRef(db), cierre({ contado: -1, diferencia: -61 })));
+    await assertFails(updateDoc(cajaRef(db), cierre({ fecha: Timestamp.now() })));
+    await assertFails(updateDoc(cajaRef(db), { ...cierre(), apertura: { monto: 0 } }));
+    await assertFails(updateDoc(cajaRef(db), { estado: 'cerrada' }));
+    // Coma flotante: 10.1 - 10.3 = -0.2000000000000011 se acepta como -0.2.
+    await assertSucceeds(
+      updateDoc(cajaRef(db), cierre({ contado: 10.1, esperado: 10.3, diferencia: -0.2 })),
+    );
+  });
+
+  it('valida movimientos: tipo, monto > 0, motivo; no se editan ni se borran', async () => {
+    const db = comoAna();
+    await assertSucceeds(setDoc(cajaRef(db), apertura()));
+    await assertFails(setDoc(movRef(db, 'a'), movimiento({ tipo: 'robo' })));
+    await assertFails(setDoc(movRef(db, 'b'), movimiento({ monto: 0 })));
+    await assertFails(setDoc(movRef(db, 'c'), movimiento({ motivo: '' })));
+    await assertFails(setDoc(movRef(db, 'd'), movimiento({ motivo: 'x'.repeat(81) })));
+    await assertFails(setDoc(movRef(db, 'e'), movimiento({ fecha: Timestamp.now() })));
+    await assertFails(setDoc(movRef(db, 'f'), movimiento({ extra: 1 })));
+    await assertFails(setDoc(movRef(db, 'g', 'no-existe'), movimiento()));
+    await assertSucceeds(setDoc(movRef(db, 'ok'), movimiento({ tipo: 'ingreso' })));
+    await assertFails(updateDoc(movRef(db, 'ok'), { monto: 1 }));
+    await assertFails(deleteDoc(movRef(db, 'ok')));
+  });
+
+  it('solo el dueño: otra cuenta no lee ni escribe cajas ajenas', async () => {
+    await assertSucceeds(setDoc(cajaRef(comoAna()), apertura()));
+    await assertFails(getDoc(cajaRef(comoBeto())));
+    await assertFails(setDoc(cajaRef(comoBeto(), 'x'), apertura()));
+    await assertFails(setDoc(movRef(comoBeto()), movimiento()));
+    await assertFails(getDoc(movRef(anonimo())));
+  });
+});

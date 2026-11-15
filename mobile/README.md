@@ -139,7 +139,8 @@ Para el simulador de iOS (solo en Mac): `npx eas-cli@latest build -p ios --profi
 ## 7. Pruebas
 
 ```bash
-npm run verify          # 127 pruebas + cobertura de dominio (~99 %)
+npm run verify          # 180 pruebas (26 suites) + cobertura de dominio (~99 %)
+cd firebase && npm test # 31 pruebas de reglas en el emulador (ver QA_REPORT §2.5)
 ```
 
 **E2E (Maestro)** — con la app instalada en un emulador y una **cuenta de prueba**:
@@ -196,6 +197,20 @@ pensados para una cuenta vacía: crean el producto `E2E Gaseosa` y el cliente `E
   **Liquidar** una deuda puntual, **Llamar** o **Recordar por WhatsApp**.
 - Estados de cada deuda: *Pendiente*, *Pago parcial*, *Cubierto* (pagada con abonos) o
   *Pagado* (marcada así desde la web).
+- **Cobranza** (botón en la pestaña Fiado): quién te debe, empezando por quien debe desde hace
+  más tiempo, con *debe desde hace N días* y *último recordatorio hace N días*. Arriba ves el
+  **total por cobrar** y lo **recuperado este mes**. **Recordar por WhatsApp** abre un mensaje
+  amable ya escrito y anota la fecha; si ya le escribiste hace menos de 3 días, el botón se ve
+  discreto (puedes enviarlo igual).
+
+### Caja
+- **Ajustes → Caja**: **Abrir caja** con el sencillo inicial. Registra **ingresos** y
+  **egresos** de efectivo con su motivo (p. ej. "pago al panadero").
+- La app calcula el **efectivo esperado**: inicial + ventas en efectivo + pagos de fiado en
+  efectivo + ingresos − egresos (las ventas anuladas se restan).
+- **Cerrar caja**: cuenta el efectivo y escríbelo; verás esperado vs. contado y si hay
+  **sobrante** o **faltante**. Una caja cerrada ya no se modifica y queda en el historial.
+- Funciona sin conexión: todo se guarda en el teléfono y se envía al volver la señal.
 
 ### Reportes
 - Hoy, ayer, 7 días, este mes o un rango. Muestra ingresos (efectivo + Yape/Plin, incluyendo

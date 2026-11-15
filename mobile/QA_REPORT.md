@@ -12,9 +12,9 @@ emulador Android **Pixel 5 · API 37**.
 |---|---|
 | `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | ✅ 0 errores |
 | ESLint (`eslint-config-expo` + Prettier) | ✅ 0 errores, 0 advertencias |
-| Jest — unitarias, integración y UI | ✅ 127/127 (20 suites) |
+| Jest — unitarias, integración y UI | ✅ 180/180 (26 suites) — 2026-11-15, con Cobranza (D-27) y Caja (D-28) |
 | Cobertura capa de dominio | ✅ ~99 % líneas (umbral exigido 70 %, aplicado en `jest.coverageThreshold`) |
-| Reglas Firestore (endurecidas 2026-11) — emulador | ✅ 23/23 |
+| Reglas Firestore (endurecidas 2026-11 + `ultimoRecordatorio` y `cajas`) — emulador | ✅ 31/31 (firebase-tools 13.35.1, JDK 17) |
 | `expo-doctor` | ✅ 20/20 checks |
 | Bundle Metro Android (Hermes) | ✅ 6.1 MB |
 | Build nativo Android release (Gradle local) | ✅ `app-release.apk` arm64-v8a, 37 MB (desde `C:\mb`, ver §6.0) |
@@ -24,7 +24,7 @@ emulador Android **Pixel 5 · API 37**.
 
 ## 2. Pruebas automatizadas
 
-### 2.1 Unitarias de dominio (`src/domain/__tests__`) — 6 suites
+### 2.1 Unitarias de dominio (`src/domain/__tests__`) — 11 suites
 
 | Suite | Qué cubre |
 |---|---|
@@ -34,10 +34,13 @@ emulador Android **Pixel 5 · API 37**.
 | `venta` | documento idéntico a la web, fiado ⇒ cliente + cargo con `ventaId`, truncado a 100 caracteres (RN-05), método inválido |
 | `fiado` | fórmula de saldo de la web, **reproducción del bug B-01**, FIFO (pendiente/parcial/cubierto/pagado), vencidos, abono/cargo/liquidación |
 | `reportes` | rangos por día local, error fin < inicio, totales por método, fiado fuera de ingresos, top 5, serie diaria en hora local (B-04), fecha efectiva `creadaEn ?? fecha` de ventas sin conexión (D-26) |
+| `cobranza` (D-27) | celular peruano → wa.me, mensaje respetuoso (sin "deuda"/"moroso"), firma con el negocio, orden por cargo pendiente más antiguo (FIFO + fecha efectiva), `pagado: true` heredado, días de calendario, pausa de 3 días, recuperado del mes calendario, caso de uso que anota el recordatorio |
+| `caja` (D-28) | apertura única, montos y motivo, arqueo sobrante/faltante en céntimos, esperado = inicial + ventas efectivo (anulaciones restan) + abonos efectivo + ingresos − egresos, ventana por fecha efectiva, outbox sin doble conteo, cierre pendiente, historial |
 
 ### 2.2 Datos (`src/data/__tests__`)
 Mappers tolerantes a datos heredados de la web (precio texto, stock ausente, `fecha` pendiente,
-métodos desconocidos), traducción de errores Firebase, caché por usuario.
+métodos desconocidos), traducción de errores Firebase, caché por usuario. `mappersCaja`: cajas y
+movimientos tolerantes, `ultimoRecordatorio` y reconstrucción de fechas desde la caché JSON.
 
 ### 2.3 Integración (`src/__tests__/integracion`)
 - **Venta offline** (8 casos): online, fiado, outbox persistente tras "reiniciar", reintento
@@ -45,11 +48,20 @@ métodos desconocidos), traducción de errores Firebase, caché por usuario.
   error permanente aislado, ejecución única concurrente, aislamiento por usuario.
 - **Fiado**: deuda → abono parcial → liquidar ⇒ saldo 0, cargo no marcado como pagado, ingresos
   correctos en el reporte.
+- **Caja sin conexión** (5 casos): abrir → egreso → cerrar sin red y sincronizar en orden al volver
+  la señal, reenvío idempotente, error de permisos bloqueado y visible, caja cerrada que rechaza
+  movimientos, reapertura de la app sin red con la última copia.
 
 ### 2.4 UI (`src/__tests__/ui`, React Native Testing Library)
 - **Login**: validación, ingreso, error traducido, registro (≥ 6 y confirmación).
 - **Cobro**: efectivo descuenta stock y vacía carrito; advertencia de stock; fiado sin cliente
   bloquea; **sin conexión guarda en el teléfono**.
+- **Cobranza**: orden y totales (por cobrar / recuperado este mes), antigüedad y último
+  recordatorio, sin celular no ofrece WhatsApp, enlace wa.me con el mensaje exacto + anotación,
+  estado discreto tras recordar (sin bloquear el reenvío), estado vacío.
+- **Caja**: abrir con monto inicial; esperado con ventas en efectivo (sincronizadas y en el
+  teléfono), abono en efectivo y egreso; cierre con faltante mostrado antes de confirmar,
+  guardado e historial; monto inválido.
 
 ### 2.5 Reglas de Firestore (`firebase/reglas.test.mjs`, emulador)
 Aislamiento entre bodegas, acceso anónimo, escrituras exactas de la web v5.3 (venta, cargo,
@@ -57,7 +69,11 @@ Aislamiento entre bodegas, acceso anónimo, escrituras exactas de la web v5.3 (v
 validación de tipos, ventas inmutables. Endurecimiento 2026-11: aislamiento de productos/ventas/deudas
 entre usuarios, `appId` distinto denegado, total negativo sin `anulaA`, `fecha` distinta de
 `serverTimestamp`, Fiado sin `clienteId`, `pagado=false` en deudas, claves desconocidas en productos,
-y el campo aditivo `creadaEn` (D-26) permitido.
+y el campo aditivo `creadaEn` (D-26) permitido. 2026-11-15: `clientes.ultimoRecordatorio` (timestamp,
+máx. 1 día en el futuro; la web sigue editando clientes), `cajas` y `cajas/{id}/movimientos`:
+flujo transaccional de la app, caja cerrada inmutable (no reabre, no recierra, sin movimientos,
+sin borrar), validación de apertura/cierre (fecha del servidor, montos, `diferencia` coherente),
+movimientos solo en caja abierta y sin edición, y aislamiento por dueño.
 
 ```bash
 cd mobile/firebase && npm install && npm test   # requiere Java 21
@@ -150,3 +166,11 @@ al volver a primer plano y al iniciar sesión; escrituras no-venta bloqueadas co
 6. **Login con Google**: no incluido; requiere client IDs OAuth nativos (R-09).
 7. Reportes "Hoy" se calcula al elegir el periodo; si la app queda abierta pasada la medianoche,
    hay que volver a tocar "Hoy".
+8. **Caja (D-28)**: "una sola caja abierta" se valida en la app (también con lo pendiente en el
+   teléfono), no en las reglas: dos teléfonos de la misma cuenta abriendo caja sin conexión
+   podrían crear dos. El esperado suma las ventas ya sincronizadas de cualquier dispositivo
+   (también la web) y las pendientes de este teléfono; las de otro teléfono sin señal entran
+   cuando las envíe. Cerrar desde dos teléfonos: gana el primer cierre.
+9. **Recordatorios (D-27)**: `ultimoRecordatorio` se escribe sin outbox propio; sin señal queda
+   en la cola en memoria del SDK y se pierde si se cierra la app antes de reconectar (el
+   WhatsApp ya salió; solo se pierde la anotación).
