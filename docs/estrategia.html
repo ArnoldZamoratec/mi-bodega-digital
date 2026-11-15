@@ -206,9 +206,10 @@ flowchart LR
   <span class="eyebrow">8 · Estado de hoy</span>
   <h2>Lo que ya quedó hecho en esta sesión</h2>
   <ul class="check">
-    <li><span><strong>Reglas de Firestore multi-tenant:</strong> cada bodega solo ve sus propios datos, se validan tipos y tamaños y las ventas no se pueden editar. Pasan las 15 pruebas de compatibilidad con la web y la app. <span class="chip crit">falta desplegar</span></span></li>
+    <li><span><strong>Reglas de Firestore multi-tenant:</strong> cada bodega solo ve sus propios datos, se validan tipos y tamaños y las ventas no se pueden editar. Pasan 23 de 23 pruebas en el emulador, que cubren la compatibilidad con la web y la app y el aislamiento entre bodegas. <span class="chip crit">falta desplegar</span></span></li>
     <li><span><strong>Hosting:</strong> ya no publica el código de la app, los documentos ni los respaldos, y lleva cabeceras de seguridad.</span></li>
     <li><span><strong>Web:</strong> sin XSS, ventas atómicas en una transacción, sin ventas duplicadas, abonos que ya no restan dos veces, "Pagar" que registra el ingreso, reportes en hora de Perú y sin índice faltante.</span></li>
+    <li><span><strong>App móvil:</strong> las ventas hechas sin internet ya caen en el día correcto, aunque se sincronicen al día siguiente. Pasan 127 de 127 tests.</span></li>
     <li><span><strong>Limpieza:</strong> se eliminaron archivos muertos (backups, scripts y código generado sin uso).</span></li>
   </ul>
   <h3>Lo que necesito de ti</h3>
