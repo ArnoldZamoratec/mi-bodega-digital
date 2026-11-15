@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Sin Firebase real en las pruebas: solo se prueba el cálculo.
 vi.mock('../firebase', () => ({ db: {}, auth: {}, appId: 'mi-bodega-app' }));
 
-const { calcularTotales } = await import('../modules/reports');
+const { calcularTotales } = await import('../logic/reporte');
 
 const venta = (p: Partial<Venta> & Pick<Venta, 'id' | 'total'>): Venta => ({
   items: [{ id: 'p1', nombre: 'Pan', precio: p.total, cantidad: 1 }],

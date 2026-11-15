@@ -50,7 +50,13 @@ export function aProducto(id: string, d: Datos): Producto {
 }
 
 export function aCliente(id: string, d: Datos): Cliente {
-  return { id, nombre: texto(d.nombre), telefono: texto(d.telefono) };
+  const ultimo = aFecha(d.ultimoRecordatorio);
+  return {
+    id,
+    nombre: texto(d.nombre),
+    telefono: texto(d.telefono),
+    ...(ultimo ? { ultimoRecordatorio: ultimo } : {}),
+  };
 }
 
 export function aVenta(id: string, d: Datos): Venta {

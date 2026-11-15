@@ -14,8 +14,10 @@
   },
   "dependencies": {
     "@bodegon/core": "*",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "chart.js": "^4.5.0",
-    "firebase": "^13.0.0"
+    "firebase": "^13.0.0",
+    "lucide": "^1.73.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

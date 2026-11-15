@@ -1,9 +1,4 @@
-/*
- * Orden igual al de la v5.3: style.css se cargaba con <link> y el Play CDN de Tailwind
- * inyectaba sus estilos DESPUÉS, así que a igual especificidad ganaba Tailwind.
- */
-@import '../css/style.css';
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Plus Jakarta Sans autoalojada (sin Google Fonts: el CSP solo necesita font-src 'self'). */
+@import '@fontsource-variable/plus-jakarta-sans/wght.css';
+/* Sistema visual completo (tokens, reset mínimo y componentes). */
+@import '../css/app.css';

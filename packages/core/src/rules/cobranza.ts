@@ -1,5 +1,5 @@
 import type { Cliente, MovimientoFiado } from '../entities';
-import { aCentimos, aSoles, formatearSoles } from './dinero';
+import { aCentimos, aSoles } from './dinero';
 import { calcularSaldo, cargoMasAntiguoPendiente } from './fiado';
 import { mensajeRecordatorio as mensajeUnico, numeroWhatsApp } from './recordatorio';
 import { crearRango, fechaEfectiva, type RangoFechas } from './reportes';

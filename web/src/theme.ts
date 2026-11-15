@@ -1,45 +1,63 @@
-// Theme Management for Mi Bodega Digital
-// Handles dark/light mode toggle and persistence
-// Nota: no se usaba en la v5.3 (index.html no tiene #theme-toggle ni carga dark-mode.css).
-// Se conserva tipado para reactivarlo; main.ts no lo llama.
+/**
+ * Tema claro / oscuro ("Noche", IDENTIDAD_VISUAL §4.6) con tokens CSS. Por defecto sigue al
+ * sistema (prefers-color-scheme); el botón fija una preferencia en este navegador.
+ */
+export type PreferenciaTema = 'sistema' | 'claro' | 'oscuro';
+const CLAVE = 'bodegon-tema';
+
+const leer = (): PreferenciaTema => {
+  try {
+    const v = localStorage.getItem(CLAVE);
+    return v === 'claro' || v === 'oscuro' ? v : 'sistema';
+  } catch {
+    return 'sistema';
+  }
+};
+
+export const preferenciaTema = (): PreferenciaTema => leer();
+
+/** Tema efectivo en este momento. */
+export function temaActual(): 'claro' | 'oscuro' {
+  const p = leer();
+  if (p !== 'sistema') return p;
+  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'oscuro'
+    : 'claro';
+}
+
+const oyentes = new Set<() => void>();
+export const alCambiarTema = (fn: () => void): void => {
+  oyentes.add(fn);
+};
+
+function aplicar(): void {
+  const p = leer();
+  const raiz = document.documentElement;
+  if (p === 'sistema') raiz.removeAttribute('data-theme');
+  else raiz.setAttribute('data-theme', p === 'oscuro' ? 'dark' : 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  meta?.setAttribute('content', temaActual() === 'oscuro' ? '#0E1311' : '#FAF7F2');
+  for (const fn of oyentes) fn();
+}
+
+export function fijarTema(p: PreferenciaTema): void {
+  try {
+    if (p === 'sistema') localStorage.removeItem(CLAVE);
+    else localStorage.setItem(CLAVE, p);
+  } catch {
+    /* almacenamiento bloqueado: solo esta sesión */
+  }
+  aplicar();
+}
+
+/** Alterna claro/oscuro respecto del tema que se ve ahora. */
+export const alternarTema = (): void => fijarTema(temaActual() === 'oscuro' ? 'claro' : 'oscuro');
 
 export function initTheme(): void {
-    const boton = document.getElementById('theme-toggle');
-    if (!boton) return;
-    const themeToggle: HTMLElement = boton;
-
-    const root = document.documentElement;
-
-    // Load saved theme or default to light
-    const savedTheme = localStorage.getItem('bodega-theme') || 'light';
-    setTheme(savedTheme);
-
-    // Toggle theme on button click
-    themeToggle.addEventListener('click', () => {
-        const currentTheme = root.getAttribute('data-theme') || 'light';
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
+  aplicar();
+  if (typeof matchMedia === 'function') {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+      if (leer() === 'sistema') aplicar();
     });
-
-    function setTheme(theme: string): void {
-        root.setAttribute('data-theme', theme);
-        localStorage.setItem('bodega-theme', theme);
-
-        // Update button icon and title
-        if (theme === 'light') {
-            themeToggle.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            `;
-            themeToggle.title = 'Activar modo oscuro';
-        } else {
-            themeToggle.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            `;
-            themeToggle.title = 'Activar modo claro';
-        }
-    }
+  }
 }

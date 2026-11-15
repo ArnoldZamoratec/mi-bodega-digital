@@ -44,7 +44,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'any',
         background_color: '#FAF7F2',
-        theme_color: '#059669',
+        theme_color: '#0B6B4F',
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
@@ -54,7 +54,7 @@ export default defineConfig({
       },
       workbox: {
         // Solo el "app shell". Los datos siguen viniendo de Firestore en vivo (sin caché propia).
-        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,webmanifest,woff2}'],
         navigateFallback: '/index.html',
         // CRÍTICO: las rutas reservadas de Firebase Hosting (/__/auth/handler, /__/auth/iframe,
         // /__/firebase/init.json) NUNCA deben responderse con index.html desde el service
