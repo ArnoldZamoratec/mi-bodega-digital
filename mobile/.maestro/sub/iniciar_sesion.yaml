@@ -1,0 +1,21 @@
+appId: com.arnoldcode.mibodega
+---
+- launchApp
+- runFlow:
+    when:
+      visible:
+        id: boton-ingresar
+    commands:
+      - tapOn:
+          id: campo-email
+      - inputText: ${EMAIL}
+      - tapOn:
+          id: campo-password
+      - inputText: ${PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: boton-ingresar
+- extendedWaitUntil:
+    visible:
+      id: tab-Vender
+    timeout: 20000

@@ -1,0 +1,27 @@
+appId: com.arnoldcode.mibodega
+name: POS - buscar, agregar, cobrar en efectivo y descontar stock
+---
+- runFlow: ../sub/iniciar_sesion.yaml
+- tapOn:
+    id: tab-Vender
+- tapOn:
+    id: buscar-pos
+- inputText: "E2E Gaseosa"
+- hideKeyboard
+- tapOn:
+    id: producto-E2E Gaseosa
+- tapOn:
+    id: producto-E2E Gaseosa
+- assertVisible: "S/ 5.00"
+- tapOn:
+    id: boton-cobrar
+- tapOn:
+    id: metodo-Efectivo
+- tapOn:
+    id: boton-confirmar-venta
+- assertVisible: "Venta registrada.*"
+- tapOn:
+    id: celebracion-nueva-venta
+- tapOn:
+    id: tab-Inventario
+- assertVisible: ".*2 Uds\\..*"

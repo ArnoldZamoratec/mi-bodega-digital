@@ -1,0 +1,52 @@
+appId: com.arnoldcode.mibodega
+name: Fiado - cliente, venta fiada, abono y saldo
+---
+- runFlow: ../sub/iniciar_sesion.yaml
+- tapOn:
+    id: tab-Fiado
+- tapOn:
+    id: fab-nuevo-cliente
+- tapOn:
+    id: campo-nombre
+- inputText: "E2E Cliente"
+- hideKeyboard
+- tapOn:
+    id: boton-guardar-cliente
+- assertVisible:
+    id: cliente-E2E Cliente
+# Venta fiada desde el POS
+- tapOn:
+    id: tab-Vender
+- tapOn:
+    id: buscar-pos
+- inputText: "E2E Gaseosa"
+- hideKeyboard
+- tapOn:
+    id: producto-E2E Gaseosa
+- tapOn:
+    id: boton-cobrar
+- tapOn:
+    id: metodo-Fiado
+- tapOn:
+    id: selector-cliente
+- tapOn:
+    id: cliente-opcion-E2E Cliente
+- tapOn:
+    id: boton-confirmar-venta
+- assertVisible: "Venta registrada.*"
+- tapOn:
+    id: celebracion-nueva-venta
+# El saldo refleja la deuda y luego el abono
+- tapOn:
+    id: tab-Fiado
+- tapOn:
+    id: cliente-E2E Cliente
+- assertVisible: "S/ 2.50"
+- tapOn:
+    id: boton-abonar
+- tapOn:
+    id: boton-guardar-movimiento
+- assertVisible: "Pago registrado"
+- assertVisible:
+    id: saldo-cliente
+    text: "S/ 0.00"

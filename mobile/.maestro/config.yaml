@@ -1,0 +1,15 @@
+# Flujos E2E de Mi Bodega Digital (Maestro).
+# Ejecutar: maestro test .maestro -e EMAIL=prueba@bodega.pe -e PASSWORD=******
+# Usar SIEMPRE una cuenta de prueba (idealmente en un proyecto Firebase de desarrollo).
+flows:
+  - "flujos/*"
+executionOrder:
+  continueOnFailure: false
+  flowsOrder:
+    - 01_login_validacion
+    - 02_login
+    - 03_inventario_crud
+    - 04_venta_efectivo
+    - 05_fiado
+    - 06_venta_offline
+    - 07_reportes_y_tema

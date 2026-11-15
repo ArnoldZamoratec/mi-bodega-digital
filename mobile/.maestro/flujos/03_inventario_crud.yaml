@@ -1,0 +1,29 @@
+appId: com.arnoldcode.mibodega
+name: Inventario - crear, editar, stock bajo y eliminar
+---
+- runFlow: ../sub/iniciar_sesion.yaml
+- tapOn:
+    id: tab-Inventario
+- tapOn:
+    id: fab-nuevo-producto
+- tapOn:
+    id: campo-nombre
+- inputText: "E2E Gaseosa"
+- tapOn:
+    id: campo-precio
+- inputText: "2.50"
+- tapOn:
+    id: campo-stock
+- inputText: "4"
+- hideKeyboard
+- tapOn:
+    id: boton-guardar-producto
+- assertVisible:
+    id: inventario-E2E Gaseosa
+# stock 4 ≤ 5 ⇒ aparece en el filtro de stock bajo
+- tapOn:
+    id: chip-stock-bajo
+- assertVisible:
+    id: inventario-E2E Gaseosa
+- tapOn:
+    id: chip-stock-bajo

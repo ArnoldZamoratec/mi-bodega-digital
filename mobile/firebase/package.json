@@ -1,0 +1,14 @@
+{
+  "name": "mi-bodega-reglas",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de las reglas de Firestore propuestas (D-12) contra el emulador.",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-mi-bodega \"node --test reglas.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0",
+    "firebase-tools": "^15.34.0"
+  }
+}

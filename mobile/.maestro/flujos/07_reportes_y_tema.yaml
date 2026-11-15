@@ -1,0 +1,20 @@
+appId: com.arnoldcode.mibodega
+name: Reportes del día y cambio de tema
+---
+- runFlow: ../sub/iniciar_sesion.yaml
+- tapOn:
+    id: tab-Reportes
+- tapOn:
+    id: periodo-hoy
+- assertVisible:
+    id: reporte-total
+- assertVisible: "Top 5 productos más vendidos"
+- assertVisible: "E2E Gaseosa"
+- tapOn:
+    id: tab-Ajustes
+- tapOn:
+    id: tema-oscuro
+- tapOn:
+    id: tema-claro
+- tapOn:
+    id: tema-sistema

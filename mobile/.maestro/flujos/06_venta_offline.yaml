@@ -1,0 +1,30 @@
+appId: com.arnoldcode.mibodega
+name: Offline - vender sin red y sincronizar al volver
+---
+- runFlow: ../sub/iniciar_sesion.yaml
+- setAirplaneMode: enabled
+- tapOn:
+    id: tab-Vender
+- assertVisible:
+    id: banner-conexion
+- tapOn:
+    id: buscar-pos
+- inputText: "E2E Gaseosa"
+- hideKeyboard
+- tapOn:
+    id: producto-E2E Gaseosa
+- tapOn:
+    id: boton-cobrar
+- tapOn:
+    id: metodo-Efectivo
+- tapOn:
+    id: boton-confirmar-venta
+- assertVisible: "Venta guardada en el teléfono.*"
+- tapOn:
+    id: celebracion-nueva-venta
+- assertVisible: ".*1 venta\(s\) guardada\(s\).*"
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+    notVisible:
+      id: banner-conexion
+    timeout: 30000

@@ -1,0 +1,20 @@
+appId: com.arnoldcode.mibodega
+name: Login - validaciones sin red ni backend
+---
+- launchApp:
+    clearState: true
+- assertVisible: Mi Bodega Digital
+- tapOn:
+    id: boton-ingresar
+- assertVisible: Ingresa tu correo
+- assertVisible: Ingresa tu contraseña
+- tapOn:
+    id: alternar-modo
+- assertVisible: Crear nueva cuenta
+- tapOn:
+    id: campo-password
+- inputText: "123"
+- hideKeyboard
+- tapOn:
+    id: boton-registrar
+- assertVisible: La contraseña debe tener al menos 6 caracteres

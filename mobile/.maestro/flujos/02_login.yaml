@@ -1,0 +1,8 @@
+appId: com.arnoldcode.mibodega
+name: Login con cuenta de prueba
+---
+- launchApp:
+    clearState: true
+- runFlow: ../sub/iniciar_sesion.yaml
+- assertVisible:
+    id: tab-Inventario
