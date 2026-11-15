@@ -11,6 +11,8 @@ import {
   ordenarCronologico,
   type EstadoCargo,
 } from '@/domain/rules/fiado';
+import { numeroWhatsapp } from '@/domain/rules/cobranza';
+import { recordarPorWhatsapp } from '@/domain/usecases/cobranza';
 import { liquidarCargo } from '@/domain/usecases/fiado';
 
 import { Aparecer } from '../../components/Aparecer';
@@ -42,13 +44,6 @@ const formatoFecha = (f: Date | null) =>
       f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
     : 'Ahora';
 
-/** Celular peruano (9 dígitos que empiezan en 9) → enlace de WhatsApp. */
-const whatsapp = (telefono: string): string | null => {
-  const digitos = telefono.replace(/\D/g, '');
-  const local = digitos.startsWith('51') && digitos.length === 11 ? digitos.slice(2) : digitos;
-  return /^9\d{8}$/.test(local) ? `51${local}` : null;
-};
-
 /**
  * Wireframe Detalle de cliente:
  *  [nombre · teléfono · [📞][WhatsApp][✏]]
@@ -62,6 +57,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
   const contenedor = useContenedor();
   const cliente = useDatos((s) => s.clientes.datos.find((c) => c.id === clienteId));
   const { datos: todos, cargando, error } = useDatos((s) => s.movimientos);
+  const nombreNegocio = useDatos((s) => s.config.nombre);
   const [liquidando, setLiquidando] = useState<string | null>(null);
 
   const movimientos = useMemo(
@@ -98,11 +94,21 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
     );
   }
 
-  const wa = whatsapp(cliente.telefono);
-  const recordar = () => {
-    if (!wa) return;
-    const texto = `Hola ${cliente.nombre}, te saluda tu bodega. Tu saldo pendiente es ${formatearSoles(saldo)}. ¡Gracias!`;
-    void Linking.openURL(`https://wa.me/${wa}?text=${encodeURIComponent(texto)}`);
+  const wa = numeroWhatsapp(cliente.telefono);
+  // Mensaje y enlace salen del dominio (rules/cobranza); se anota el recordatorio (D-27).
+  const recordar = async () => {
+    try {
+      const enlace = await recordarPorWhatsapp(contenedor.recordatorios, {
+        clienteId,
+        nombreCliente: cliente.nombre,
+        telefono: cliente.telefono,
+        saldo,
+        nombreNegocio,
+      });
+      if (enlace) await Linking.openURL(enlace);
+    } catch {
+      avisar('No se pudo abrir WhatsApp. Revisa que esté instalado.', 'error');
+    }
   };
 
   const liquidar = async (metodo: MetodoPagoAbono) => {
@@ -281,7 +287,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
                     mode="outlined"
                     compact
                     style={estilos.contacto}
-                    onPress={recordar}
+                    onPress={() => void recordar()}
                   >
                     Recordar
                   </Button>

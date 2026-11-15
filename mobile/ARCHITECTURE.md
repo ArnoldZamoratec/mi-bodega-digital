@@ -124,6 +124,8 @@ Ninguna rompe la web (la web usa `updateDoc`, que hace merge y no borra campos d
 | `deudas.origen?: "movil"` | Auditoría | La web lo ignora |
 | `config/negocio` (doc) `{ nombre, ruc?, direccion?, telefono?, diasVencimientoFiado }` | Pantalla de configuración | Ruta nueva bajo el mismo `uid` |
 | `ventas/{id}` con id generado en cliente | Idempotencia offline | Mismo esquema |
+| `clientes.ultimoRecordatorio?: Timestamp` | Cobranza: último recordatorio por WhatsApp (D-27) | La web lo ignora y lo conserva al editar |
+| `cajas/{id}` + `cajas/{id}/movimientos/{id}` | Caja: apertura, ingresos/egresos, cierre con arqueo (D-28) | Ruta nueva bajo el mismo `uid` |
 
 ---
 
@@ -176,7 +178,8 @@ Pila raíz (native-stack)
 │   └── Ajustes     → AjustesScreen
 ├── Cobro · Escaner(modo pos|codigo) · ProductoForm
 ├── ClienteDetalle · ClienteForm (modal) · MovimientoForm (modal, cargo|abono)
-└── VentasPendientes · DatosNegocio
+├── Cobranza (desde Fiado) · Caja (desde Ajustes)
+└── VentasPendientes · DatosNegocio · HistorialVentas
 ```
 
 ### 3.2 Estructura de carpetas (implementada)

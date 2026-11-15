@@ -22,9 +22,13 @@ import { useSesion } from '../stores/sesionStore';
  *    primer plano.
  *  - Reprograma el recordatorio de fiados cuando cambian los datos.
  */
-/** Ventas primero: un abono puede imputarse al cargo de una venta fiada aún pendiente. */
+/**
+ * Ventas primero: un abono puede imputarse al cargo de una venta fiada aún pendiente.
+ * La caja (D-28) es independiente y va en paralelo.
+ */
 function sincronizarTodo(c: Contenedor): void {
   void c.sincronizador.sincronizar().finally(() => c.sincronizadorFiado.sincronizar());
+  void c.sincronizadorCaja.sincronizar();
 }
 
 export function useArranque(

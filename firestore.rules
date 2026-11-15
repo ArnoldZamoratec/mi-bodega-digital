@@ -23,6 +23,11 @@ service cloud.firestore {
     function campoOpcional(campo, max) {
       return !(campo in d()) || texto(d()[campo], max);
     }
+    // Hora del teléfono (`creadaEn`, recordatorios): puede ser antigua (outbox), pero no
+    // más de un día en el futuro (reloj muy adelantado o dato inventado).
+    function horaTelefono(v) {
+      return v is timestamp && v <= request.time + duration.value(1, 'd');
+    }
 
     match /artifacts/{appId}/users/{userId} {
       // Solo la app oficial; evita que alguien use otros "appId" como almacenamiento gratis.
@@ -56,12 +61,15 @@ service cloud.firestore {
       // ---------- clientes ----------
       match /clientes/{clienteId} {
         allow read, delete: if dueno();
+        // `ultimoRecordatorio` (D-27): hora del teléfono del último recordatorio por WhatsApp.
         allow create, update: if dueno()
-          && d().keys().hasOnly(['nombre', 'telefono', 'documento', 'limiteCredito'])
+          && d().keys().hasOnly(['nombre', 'telefono', 'documento', 'limiteCredito',
+                                 'ultimoRecordatorio'])
           && textoNoVacio(d().nombre, 120)
           && campoOpcional('telefono', 30)
           && campoOpcional('documento', 20)
-          && (!('limiteCredito' in d()) || (esNumero(d().limiteCredito) && d().limiteCredito >= 0));
+          && (!('limiteCredito' in d()) || (esNumero(d().limiteCredito) && d().limiteCredito >= 0))
+          && (!('ultimoRecordatorio' in d()) || horaTelefono(d().ultimoRecordatorio));
       }
 
       // ---------- ventas (libro inmutable) ----------
@@ -101,6 +109,62 @@ service cloud.firestore {
         allow update: if dueno()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pagado'])
           && d().pagado == true;
+      }
+
+      // ---------- caja (D-28): sesiones de efectivo ----------
+      // cajas/{cajaId}: se crea abierta, se cierra una sola vez y queda inmutable.
+      match /cajas/{cajaId} {
+        function montoCaja(v) { return esNumero(v) && v >= 0 && v <= 100000; }
+        function montoFirmado(v) { return esNumero(v) && v >= -1000000 && v <= 1000000; }
+        function aperturaValida() {
+          let a = d().apertura;
+          return a is map
+            && a.keys().hasOnly(['monto', 'fecha', 'creadaEn'])
+            && a.keys().hasAll(['monto', 'fecha'])
+            && montoCaja(a.monto)
+            && a.fecha == request.time
+            && (!('creadaEn' in a) || horaTelefono(a.creadaEn));
+        }
+        function cierreValido() {
+          let c = d().cierre;
+          return c is map
+            && c.keys().hasOnly(['contado', 'esperado', 'diferencia', 'fecha', 'creadaEn'])
+            && c.keys().hasAll(['contado', 'esperado', 'diferencia', 'fecha'])
+            && montoCaja(c.contado)
+            && montoFirmado(c.esperado)
+            && montoFirmado(c.diferencia)
+            // diferencia = contado - esperado (tolerancia de medio céntimo por coma flotante)
+            && math.abs(c.contado - c.esperado - c.diferencia) < 0.005
+            && c.fecha == request.time
+            && (!('creadaEn' in c) || horaTelefono(c.creadaEn));
+        }
+        allow read: if dueno();
+        allow create: if dueno()
+          && d().keys().hasOnly(['estado', 'apertura', 'origen'])
+          && d().estado == 'abierta'
+          && aperturaValida()
+          && (!('origen' in d()) || d().origen == 'movil');
+        // Único cambio permitido: cerrar (abierta -> cerrada) agregando el cierre.
+        allow update: if dueno()
+          && resource.data.estado == 'abierta'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'cierre'])
+          && d().estado == 'cerrada'
+          && cierreValido();
+        allow delete: if false;
+
+        // Ingresos y egresos manuales: solo se crean, y solo en una caja abierta.
+        match /movimientos/{movimientoId} {
+          allow read: if dueno();
+          allow create: if dueno()
+            && get(/databases/$(database)/documents/artifacts/$(appId)/users/$(userId)/cajas/$(cajaId)).data.estado == 'abierta'
+            && d().keys().hasOnly(['tipo', 'monto', 'motivo', 'fecha', 'creadaEn'])
+            && d().tipo in ['ingreso', 'egreso']
+            && esNumero(d().monto) && d().monto > 0 && d().monto <= 100000
+            && textoNoVacio(d().motivo, 80)
+            && d().fecha == request.time
+            && (!('creadaEn' in d()) || horaTelefono(d().creadaEn));
+          allow update, delete: if false;
+        }
       }
 
       // ---------- configuración del negocio ----------

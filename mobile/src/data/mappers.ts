@@ -68,7 +68,25 @@ export function aProducto(id: string, d: Datos): Producto {
 }
 
 export function aCliente(id: string, d: Datos): Cliente {
-  return { id, nombre: texto(d.nombre, '(sin nombre)'), telefono: texto(d.telefono) };
+  const recordatorio = fecha(d.ultimoRecordatorio);
+  return {
+    id,
+    nombre: texto(d.nombre, '(sin nombre)'),
+    telefono: texto(d.telefono),
+    // Aditivo (D-27): solo si es una fecha válida.
+    ...(recordatorio && !Number.isNaN(recordatorio.getTime())
+      ? { ultimoRecordatorio: recordatorio }
+      : {}),
+  };
+}
+
+/** La caché local guarda JSON: las fechas vuelven como texto y se reconstruyen aquí. */
+export function revivirCliente(c: Cliente): Cliente {
+  const crudo: unknown = c.ultimoRecordatorio;
+  if (crudo === undefined || crudo instanceof Date) return c;
+  const f = typeof crudo === 'string' || typeof crudo === 'number' ? new Date(crudo) : null;
+  const { ultimoRecordatorio: _omitido, ...resto } = c;
+  return f && !Number.isNaN(f.getTime()) ? { ...resto, ultimoRecordatorio: f } : resto;
 }
 
 function aItem(v: unknown): ItemVenta | null {
