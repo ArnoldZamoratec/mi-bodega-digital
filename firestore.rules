@@ -1,9 +1,18 @@
 rules_version = '2';
 
 // Mi Bodega Digital — reglas de seguridad (multi-tenant por usuario).
-// Cada bodega solo puede leer/escribir artifacts/mi-bodega-app/users/{su uid}/...
+// Cada bodega vive en artifacts/mi-bodega-app/users/{uid del dueño}/...
 // Compatible con la web v5.3+ y la app móvil (contrato en mobile/ARCHITECTURE.md §2).
 // Base: propuesta D-12 (mobile/firebase/firestore.rules) + endurecimiento de la auditoría 2026-11.
+// Cajeros (D-33, docs/roles.md): un cajero trabaja DENTRO de la ruta del dueño si
+// users/{dueño}/miembros/{su uid} existe con activo == true. Los campos de autoría son
+// opcionales para el dueño (versiones viejas no los escriben) y obligatorios para el cajero.
+//
+// Presupuesto de get()/exists() (límite: 10 por documento, 20 por transacción o lote; la misma
+// ruta cuenta una sola vez por solicitud):
+//   - dueño: 0 (1 en movimientos de caja: la caja abierta). `esDueno` va primero y corta.
+//   - cajero: 1 (su miembro); 2 en cargos de fiado (+ la venta) y movimientos de caja (+ la caja).
+//   - aceptar invitación (transacción de 3 escrituras): 4 rutas distintas.
 //
 // IMPORTANTE: probar con el emulador antes de desplegar:
 //   cd mobile/firebase && npm test     (reglas.test.mjs)
@@ -16,6 +25,25 @@ service cloud.firestore {
     function esDueno(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
+    function rutaMiembro(userId) {
+      return /databases/$(database)/documents/artifacts/mi-bodega-app/users/$(userId)/miembros/$(request.auth.uid);
+    }
+    // Documento de miembro de quien hace la solicitud en la bodega `userId`.
+    function miembro(userId) {
+      return get(rutaMiembro(userId));
+    }
+    // Cajero activo de la bodega `userId`. Nunca se evalúa para el dueño (uid distinto corta
+    // antes del get). Desactivado o borrado ⇒ falso en la misma solicitud.
+    function esCajeroActivo(userId) {
+      return request.auth != null
+        && request.auth.uid != userId
+        && exists(rutaMiembro(userId))
+        && miembro(userId).data.activo == true
+        && miembro(userId).data.rol == 'cajero';
+    }
+    function accede(userId) {
+      return esDueno(userId) || esCajeroActivo(userId);
+    }
     function esNumero(v) { return v is int || v is float; }
     function texto(v, max) { return v is string && v.size() <= max; }
     function textoNoVacio(v, max) { return texto(v, max) && v.size() > 0; }
@@ -23,16 +51,30 @@ service cloud.firestore {
     function campoOpcional(campo, max) {
       return !(campo in d()) || texto(d()[campo], max);
     }
+    function cambiaSolo(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
     // Hora del teléfono (`creadaEn`, recordatorios): puede ser antigua (outbox), pero no
     // más de un día en el futuro (reloj muy adelantado o dato inventado).
     function horaTelefono(v) {
       return v is timestamp && v <= request.time + duration.value(1, 'd');
     }
+    // Autoría (D-33): si viene, debe ser quien escribe; el nombre, 1..60 caracteres.
+    function autoria(campoUid, campoNombre) {
+      return (!(campoUid in d()) || d()[campoUid] == request.auth.uid)
+        && (!(campoNombre in d()) || textoNoVacio(d()[campoNombre], 60));
+    }
+    function autoriaExigida(campoUid, campoNombre) {
+      return campoUid in d() && campoNombre in d() && autoria(campoUid, campoNombre);
+    }
+    function codigoValido(c) { return c is string && c.matches('^[A-HJKMNP-Z2-9]{8}$'); }
 
     match /artifacts/{appId}/users/{userId} {
       // Solo la app oficial; evita que alguien use otros "appId" como almacenamiento gratis.
       function appValida() { return appId == 'mi-bodega-app'; }
       function dueno() { return appValida() && esDueno(userId); }
+      function cajero() { return appValida() && esCajeroActivo(userId); }
+      function accedeApp() { return appValida() && accede(userId); }
 
       // ---------- productos ----------
       match /productos/{productoId} {
@@ -44,70 +86,110 @@ service cloud.firestore {
             && campoOpcional('categoria', 60)
             && (!('costo' in d()) || (esNumero(d().costo) && d().costo >= 0));
         }
-        allow read, delete: if dueno();
+        allow read: if accedeApp();
+        allow delete: if dueno();
         // Creación: solo campos conocidos. Edición: valida tipos sin exigir lista cerrada, para que
         // un producto heredado con campos extra se pueda seguir editando.
         allow create: if dueno() && productoValido()
           && d().keys().hasOnly(['nombre', 'precio', 'stock', 'codigoBarras', 'costo', 'categoria']);
         // Venta / anulación: solo cambia el stock (increment). No se valida el resto para que un
         // producto heredado con datos raros no bloquee una venta.
-        allow update: if dueno() && (
-          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
-            && esNumero(d().stock))
-          || productoValido()
-        );
+        // Cajero: solo descontar stock controlado (vender); devolver stock es de la anulación.
+        allow update: if (dueno() && (
+            (cambiaSolo(['stock']) && esNumero(d().stock))
+            || productoValido()
+          ))
+          || (cajero()
+            && cambiaSolo(['stock'])
+            && esNumero(d().stock) && esNumero(resource.data.stock)
+            && d().stock < resource.data.stock);
       }
 
       // ---------- clientes ----------
       match /clientes/{clienteId} {
-        allow read, delete: if dueno();
+        function clienteValido() {
+          return d().keys().hasOnly(['nombre', 'telefono', 'documento', 'limiteCredito',
+                                     'ultimoRecordatorio'])
+            && textoNoVacio(d().nombre, 120)
+            && campoOpcional('telefono', 30)
+            && campoOpcional('documento', 20)
+            && (!('limiteCredito' in d()) || (esNumero(d().limiteCredito) && d().limiteCredito >= 0))
+            && (!('ultimoRecordatorio' in d()) || horaTelefono(d().ultimoRecordatorio));
+        }
+        allow read: if accedeApp();
+        allow delete: if dueno();
         // `ultimoRecordatorio` (D-27): hora del teléfono del último recordatorio por WhatsApp.
-        allow create, update: if dueno()
-          && d().keys().hasOnly(['nombre', 'telefono', 'documento', 'limiteCredito',
-                                 'ultimoRecordatorio'])
-          && textoNoVacio(d().nombre, 120)
-          && campoOpcional('telefono', 30)
-          && campoOpcional('documento', 20)
-          && (!('limiteCredito' in d()) || (esNumero(d().limiteCredito) && d().limiteCredito >= 0))
-          && (!('ultimoRecordatorio' in d()) || horaTelefono(d().ultimoRecordatorio));
+        allow create: if (dueno() || cajero()) && clienteValido();
+        allow update: if (dueno() && clienteValido())
+          || (cajero()
+            && cambiaSolo(['ultimoRecordatorio'])
+            && horaTelefono(d().ultimoRecordatorio));
       }
 
       // ---------- ventas (libro inmutable) ----------
       match /ventas/{ventaId} {
-        allow read: if dueno();
+        function ventaValida() {
+          return d().items is list && d().items.size() <= 300
+            && esNumero(d().total) && d().total <= 1000000
+            && d().metodoDePago in ['Efectivo', 'Yape/Plin', 'Fiado']
+            && d().fecha == request.time
+            && (
+              // Venta normal: con ítems, total >= 0 y cliente si es fiado
+              (!('anulaA' in d()) && d().total >= 0 && d().items.size() > 0
+                && (d().metodoDePago != 'Fiado' || d().clienteId is string))
+              // Anulación: refleja la venta original (puede ser heredada con datos incompletos)
+              || (d().anulaA is string
+                  && ventaId == d().anulaA + '-anulada'
+                  && d().total <= 0)
+            );
+        }
+        allow read: if accedeApp();
         // Se crean, nunca se editan ni borran. Una anulación es otra venta (contraasiento)
-        // con id "{venta}-anulada" y total <= 0.
-        allow create: if dueno()
-          && d().items is list && d().items.size() <= 300
-          && esNumero(d().total) && d().total <= 1000000
-          && d().metodoDePago in ['Efectivo', 'Yape/Plin', 'Fiado']
-          && d().fecha == request.time
-          && (
-            // Venta normal: con ítems, total >= 0 y cliente si es fiado
-            (!('anulaA' in d()) && d().total >= 0 && d().items.size() > 0
-              && (d().metodoDePago != 'Fiado' || d().clienteId is string))
-            // Anulación: refleja la venta original (puede ser heredada con datos incompletos)
-            || (d().anulaA is string
-                && ventaId == d().anulaA + '-anulada'
-                && d().total <= 0)
-          );
+        // con id "{venta}-anulada" y total <= 0. Anular es solo del dueño.
+        allow create: if ventaValida() && (
+          (dueno() && autoria('vendidoPor', 'vendidoPorNombre'))
+          || (cajero() && !('anulaA' in d()) && autoriaExigida('vendidoPor', 'vendidoPorNombre'))
+        );
         allow update, delete: if false;
       }
 
       // ---------- deudas (cargos > 0, abonos < 0) ----------
       match /deudas/{deudaId} {
-        allow read, delete: if dueno();
-        allow create: if dueno()
-          && d().clienteId is string
-          && esNumero(d().monto) && d().monto != 0
-          && d().monto >= -1000000 && d().monto <= 1000000
-          && texto(d().descripcion, 300)
-          && d().fecha == request.time
-          && (!('pagado' in d()) || d().pagado is bool)
-          && (!('metodoPago' in d()) || d().metodoPago in ['Efectivo', 'Yape/Plin']);
-        // Solo se permite marcar un cargo heredado como pagado (false -> true).
+        function movimientoValido() {
+          return d().clienteId is string
+            && esNumero(d().monto) && d().monto != 0
+            && d().monto >= -1000000 && d().monto <= 1000000
+            && texto(d().descripcion, 300)
+            && d().fecha == request.time
+            && (!('pagado' in d()) || d().pagado is bool)
+            && (!('metodoPago' in d()) || d().metodoPago in ['Efectivo', 'Yape/Plin']);
+        }
+        function rutaVenta() {
+          return /databases/$(database)/documents/artifacts/$(appId)/users/$(userId)/ventas/$(d().ventaId);
+        }
+        // Cajero: un cargo solo acompaña a SU venta fiada al mismo cliente (en la misma
+        // transacción o antes), por un monto no mayor que el de la venta.
+        function cargoDeVentaFiada() {
+          return d().monto > 0
+            && d().ventaId is string
+            && existsAfter(rutaVenta())
+            && getAfter(rutaVenta()).data.metodoDePago == 'Fiado'
+            && getAfter(rutaVenta()).data.clienteId == d().clienteId
+            && getAfter(rutaVenta()).data.vendidoPor == request.auth.uid
+            && d().monto <= getAfter(rutaVenta()).data.total + 0.005;
+        }
+        allow read: if accedeApp();
+        allow delete: if dueno();
+        allow create: if movimientoValido() && (
+          (dueno() && autoria('registradoPor', 'registradoPorNombre'))
+          || (cajero()
+            && autoriaExigida('registradoPor', 'registradoPorNombre')
+            && (!('pagado' in d()) || d().pagado == false)
+            && (d().monto < 0 || cargoDeVentaFiada()))
+        );
+        // Solo se permite marcar un cargo heredado como pagado (false -> true). Solo el dueño.
         allow update: if dueno()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pagado'])
+          && cambiaSolo(['pagado'])
           && d().pagado == true;
       }
 
@@ -138,44 +220,148 @@ service cloud.firestore {
             && c.fecha == request.time
             && (!('creadaEn' in c) || horaTelefono(c.creadaEn));
         }
-        allow read: if dueno();
-        allow create: if dueno()
-          && d().keys().hasOnly(['estado', 'apertura', 'origen'])
+        allow read: if accedeApp();
+        allow create: if d().keys().hasOnly(['estado', 'apertura', 'origen',
+                                             'abiertaPor', 'abiertaPorNombre'])
           && d().estado == 'abierta'
           && aperturaValida()
-          && (!('origen' in d()) || d().origen == 'movil');
+          && (!('origen' in d()) || d().origen == 'movil')
+          && ((dueno() && autoria('abiertaPor', 'abiertaPorNombre'))
+            || (cajero() && autoriaExigida('abiertaPor', 'abiertaPorNombre')));
         // Único cambio permitido: cerrar (abierta -> cerrada) agregando el cierre.
-        allow update: if dueno()
-          && resource.data.estado == 'abierta'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'cierre'])
+        allow update: if resource.data.estado == 'abierta'
+          && cambiaSolo(['estado', 'cierre', 'cerradaPor', 'cerradaPorNombre'])
           && d().estado == 'cerrada'
-          && cierreValido();
+          && cierreValido()
+          && ((dueno() && autoria('cerradaPor', 'cerradaPorNombre'))
+            || (cajero() && autoriaExigida('cerradaPor', 'cerradaPorNombre')));
         allow delete: if false;
 
         // Ingresos y egresos manuales: solo se crean, y solo en una caja abierta.
         match /movimientos/{movimientoId} {
-          allow read: if dueno();
-          allow create: if dueno()
-            && get(/databases/$(database)/documents/artifacts/$(appId)/users/$(userId)/cajas/$(cajaId)).data.estado == 'abierta'
-            && d().keys().hasOnly(['tipo', 'monto', 'motivo', 'fecha', 'creadaEn'])
+          allow read: if accedeApp();
+          allow create: if d().keys().hasOnly(['tipo', 'monto', 'motivo', 'fecha', 'creadaEn',
+                                               'registradoPor', 'registradoPorNombre'])
             && d().tipo in ['ingreso', 'egreso']
             && esNumero(d().monto) && d().monto > 0 && d().monto <= 100000
             && textoNoVacio(d().motivo, 80)
             && d().fecha == request.time
-            && (!('creadaEn' in d()) || horaTelefono(d().creadaEn));
+            && (!('creadaEn' in d()) || horaTelefono(d().creadaEn))
+            && ((dueno() && autoria('registradoPor', 'registradoPorNombre'))
+              || (cajero() && autoriaExigida('registradoPor', 'registradoPorNombre')))
+            && get(/databases/$(database)/documents/artifacts/$(appId)/users/$(userId)/cajas/$(cajaId)).data.estado == 'abierta';
           allow update, delete: if false;
         }
       }
 
       // ---------- configuración del negocio ----------
       match /config/{docId} {
-        allow read: if dueno();
+        allow read: if accedeApp();
         allow write: if dueno() && docId == 'negocio'
           && campoOpcional('nombre', 120)
           && campoOpcional('ruc', 11)
           && campoOpcional('direccion', 200)
           && campoOpcional('telefono', 30);
       }
+
+      // ---------- equipo (D-33): miembros/{uid del cajero} ----------
+      match /miembros/{miembroId} {
+        function rutaInvitacion() {
+          return /databases/$(database)/documents/artifacts/$(appId)/invitaciones/$(d().invitacion);
+        }
+        function rutaCuenta() {
+          return /databases/$(database)/documents/artifacts/$(appId)/cuentas/$(request.auth.uid);
+        }
+        // El dueño lista su equipo; el cajero lee el suyo (aunque esté desactivado, para avisarle).
+        allow read: if dueno()
+          || (appValida() && request.auth != null && request.auth.uid == miembroId);
+        // Lo crea el cajero al aceptar, en la MISMA transacción que marca la invitación como
+        // usada (get antes: libre; getAfter: suya) y que deja su cuenta apuntando a esta bodega.
+        allow create: if appValida() && request.auth != null
+          && request.auth.uid == miembroId
+          && miembroId != userId
+          && d().keys().hasOnly(['rol', 'nombre', 'email', 'activo', 'desde', 'invitacion'])
+          && d().keys().hasAll(['rol', 'nombre', 'activo', 'desde', 'invitacion'])
+          && d().rol == 'cajero'
+          && d().activo == true
+          && d().desde == request.time
+          && textoNoVacio(d().nombre, 60)
+          && campoOpcional('email', 120)
+          && codigoValido(d().invitacion)
+          && get(rutaInvitacion()).data.usadaPor == null
+          && getAfter(rutaInvitacion()).data.usadaPor == request.auth.uid
+          && getAfter(rutaInvitacion()).data.dueno == userId
+          && getAfter(rutaCuenta()).data.bodega == userId;
+        // El dueño solo activa/desactiva o renombra; o lo borra (pierde el acceso al instante).
+        allow update: if dueno()
+          && cambiaSolo(['activo', 'nombre'])
+          && d().activo is bool
+          && textoNoVacio(d().nombre, 60);
+        allow delete: if dueno();
+      }
+    }
+
+    // ---------- invitaciones (D-33): artifacts/mi-bodega-app/invitaciones/{codigo} ----------
+    match /artifacts/{appId}/invitaciones/{codigo} {
+      function appValida() { return appId == 'mi-bodega-app'; }
+      function rutaMiembroInvitado() {
+        return /databases/$(database)/documents/artifacts/$(appId)/users/$(resource.data.dueno)/miembros/$(request.auth.uid);
+      }
+      // Leer una por código (quien lo tiene); listar solo las propias (where dueno == uid).
+      allow get: if appValida() && request.auth != null;
+      allow list: if appValida() && request.auth != null
+        && resource.data.dueno == request.auth.uid;
+      // La crea el dueño (no un cajero: sin cuentas/{uid}), sin usar y por 7 días como máximo.
+      allow create: if appValida() && request.auth != null
+        && codigoValido(codigo)
+        && d().keys().hasOnly(['dueno', 'rol', 'creada', 'expira', 'usadaPor', 'nombreBodega'])
+        && d().keys().hasAll(['dueno', 'rol', 'creada', 'expira', 'usadaPor', 'nombreBodega'])
+        && d().dueno == request.auth.uid
+        && d().rol == 'cajero'
+        && d().creada == request.time
+        && d().expira is timestamp
+        && d().expira > request.time
+        && d().expira <= request.time + duration.value(7, 'd')
+        && d().usadaPor == null
+        && textoNoVacio(d().nombreBodega, 120)
+        && !exists(/databases/$(database)/documents/artifacts/$(appId)/cuentas/$(request.auth.uid));
+      // Aceptar: el cajero marca usadaPor = su uid, una sola vez, antes de que venza, y en la
+      // misma transacción crea su miembro en la bodega del dueño.
+      allow update: if appValida() && request.auth != null
+        && resource.data.usadaPor == null
+        && request.time < resource.data.expira
+        && request.auth.uid != resource.data.dueno
+        && cambiaSolo(['usadaPor'])
+        && d().usadaPor == request.auth.uid
+        && existsAfter(rutaMiembroInvitado());
+      allow delete: if appValida() && request.auth != null
+        && resource.data.dueno == request.auth.uid;
+    }
+
+    // ---------- cuentas (D-33): artifacts/mi-bodega-app/cuentas/{uid} ----------
+    // Existe solo para cajeros: a qué bodega pertenecen. Sin documento = dueño (como hoy).
+    match /artifacts/{appId}/cuentas/{uid} {
+      function appValida() { return appId == 'mi-bodega-app'; }
+      function propia() { return appValida() && request.auth != null && request.auth.uid == uid; }
+      function rutaMiembroEn(bodega) {
+        return /databases/$(database)/documents/artifacts/$(appId)/users/$(bodega)/miembros/$(uid);
+      }
+      allow read: if propia();
+      // Solo si el miembro correspondiente existe (o se crea en la misma transacción) y está activo.
+      allow create: if propia()
+        && d().keys().hasOnly(['bodega', 'rol'])
+        && d().keys().hasAll(['bodega', 'rol'])
+        && d().rol == 'cajero'
+        && d().bodega is string
+        && d().bodega != uid
+        && existsAfter(rutaMiembroEn(d().bodega))
+        && getAfter(rutaMiembroEn(d().bodega)).data.activo == true;
+      // Una cuenta pertenece a una sola bodega: no se cambia. Se puede borrar (volver a ser
+      // dueño o aceptar otra bodega) solo cuando ya no es cajero activo de la anterior.
+      allow update: if false;
+      allow delete: if propia()
+        && (!exists(rutaMiembroEn(resource.data.bodega))
+          || get(rutaMiembroEn(resource.data.bodega)).data.activo != true);
     }
 
     // Todo lo demás: denegado.

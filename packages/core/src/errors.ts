@@ -11,7 +11,15 @@ export type CodigoErrorDominio =
   | 'VENTA_YA_ANULADA'
   | 'CAJA_YA_ABIERTA'
   | 'CAJA_NO_ABIERTA'
-  | 'MOTIVO_VACIO';
+  | 'MOTIVO_VACIO'
+  | 'CODIGO_INVALIDO'
+  | 'INVITACION_NO_EXISTE'
+  | 'INVITACION_VENCIDA'
+  | 'INVITACION_USADA'
+  | 'INVITACION_PROPIA'
+  | 'CUENTA_DE_OTRA_BODEGA'
+  | 'LIMITE_CAJEROS'
+  | 'SIN_PERMISO';
 
 const MENSAJES: Record<CodigoErrorDominio, string> = {
   CARRITO_VACIO: 'El carrito está vacío',
@@ -27,6 +35,14 @@ const MENSAJES: Record<CodigoErrorDominio, string> = {
   CAJA_YA_ABIERTA: 'Ya tienes una caja abierta. Ciérrala antes de abrir otra.',
   CAJA_NO_ABIERTA: 'No hay una caja abierta. Abre la caja para registrar movimientos.',
   MOTIVO_VACIO: 'Escribe el motivo (por ejemplo: pago al proveedor)',
+  CODIGO_INVALIDO: 'Revisa el código: son 8 letras y números, como ABCD-EFGH',
+  INVITACION_NO_EXISTE: 'No encontramos ese código. Pídele al dueño que te lo vuelva a enviar.',
+  INVITACION_VENCIDA: 'Este código ya venció. Pídele al dueño uno nuevo.',
+  INVITACION_USADA: 'Este código ya fue usado. Pídele al dueño uno nuevo.',
+  INVITACION_PROPIA: 'Este código es de tu propia bodega: compártelo con tu cajero.',
+  CUENTA_DE_OTRA_BODEGA: 'Tu cuenta ya trabaja en otra bodega. Usa otra cuenta para esta.',
+  LIMITE_CAJEROS: 'Ya tienes 3 cajeros activos. Desactiva uno para invitar a otro.',
+  SIN_PERMISO: 'Solo el dueño de la bodega puede hacer esto.',
 };
 
 /** Error de regla de negocio: siempre tiene un mensaje apto para mostrar al usuario. */

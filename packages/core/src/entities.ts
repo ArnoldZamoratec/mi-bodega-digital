@@ -108,7 +108,8 @@ export const CONFIG_NEGOCIO_POR_DEFECTO: ConfigNegocio = {
   alertasStockBajo: true,
 };
 
-export type Rol = 'dueno';
+/** D-33: el dueño es cualquier cuenta sin `cuentas/{uid}`; el cajero trabaja en la ruta del dueño. */
+export type Rol = 'dueno' | 'cajero';
 
 export interface Usuario {
   uid: string;

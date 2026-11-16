@@ -45,6 +45,36 @@ Fecha: 2026-11-15. Estado: aprobado por dirección técnica. Implementación por
 - **Auditoría:** ventas, abonos y movimientos de caja guardan quién los hizo (`vendidoPor` + `vendidoPorNombre`, etc.). En la app y la web, el dueño ve "Vendió: Rosa" en el historial y en el cierre de caja.
 - **Compatibilidad:** los campos de autoría son **opcionales para el dueño** (las versiones viejas no los escriben) y **obligatorios para el cajero**.
 
+## Campos de autoría (fase 1, definitivos)
+
+Nombres fijos en `@bodegon/core` (`CAMPOS_AUTORIA`, `rules/roles.ts`). El uid debe ser `request.auth.uid`; el nombre, de 1 a 60 caracteres. **Opcionales para el dueño** (si vienen, deben ser suyos) y **obligatorios para el cajero**.
+
+| Documento | Campos | Cuándo |
+|---|---|---|
+| `ventas/{id}` | `vendidoPor`, `vendidoPorNombre` | al crear la venta |
+| `deudas/{id}` (cargos y abonos) | `registradoPor`, `registradoPorNombre` | al crear el movimiento |
+| `cajas/{id}` | `abiertaPor`, `abiertaPorNombre` | al abrir (junto con `apertura`) |
+| `cajas/{id}` | `cerradaPor`, `cerradaPorNombre` | al cerrar (junto con `estado` y `cierre`) |
+| `cajas/{id}/movimientos/{id}` | `registradoPor`, `registradoPorNombre` | al crear el ingreso/egreso |
+
+Helpers: `sellarVenta`, `sellarMovimientoFiado`, `sellarAperturaCaja`, `sellarCierreCaja`, `sellarMovimientoCaja` (sin sesión devuelven el documento igual) y `leerAutoria` para mostrar "Vendió: Rosa".
+
+## Reglas: detalles de la fase 1
+
+- **Helpers:** `esDueno(userId)`, `miembro(userId)` (= `get(users/{userId}/miembros/{auth.uid})`), `esCajeroActivo(userId)` (miembro existe, `rol == 'cajero'`, `activo == true`, uid distinto del dueño) y `accede(userId)`. `esDueno` se evalúa primero: **el dueño no gasta ningún `get`**.
+- **Presupuesto de `get`/`exists`** (máximo 10 por documento, 20 por transacción; la misma ruta cuenta una vez): dueño 0 (1 en movimientos de caja, como antes); cajero 1 (su miembro), 2 en cargos de fiado (+ la venta) y en movimientos de caja (+ la caja); venta de cajero con cargo y N productos: 2 rutas distintas; aceptar invitación: 4 rutas (invitación antes y después, miembro, cuenta).
+- **Aceptar invitación** (una transacción): `invitaciones/{codigo}` solo cambia `usadaPor` de `null` a `auth.uid`, antes de `expira`, si no es el dueño y si el miembro existe al final (`existsAfter`); `miembros/{uid}` exige que la invitación estuviera libre (`get`) y quede usada por él (`getAfter`), que sea de este dueño y que `cuentas/{uid}.bodega` apunte aquí (`getAfter`); `cuentas/{uid}` exige el miembro activo (`existsAfter`/`getAfter`). Un cajero quitado no puede volver con la invitación vieja: necesita una nueva.
+- **Precisiones sobre la tabla** (más estrictas, no más permisivas):
+  - *Descontar stock:* el cajero solo puede **bajar** un `stock` numérico (`increment` negativo). Devolver stock es de la anulación (dueño); productos con stock `null` no se tocan (la app móvil ya los omite; la web de la fase 2 debe omitirlos para el cajero).
+  - *Fiar por venta:* el cargo del cajero (`monto > 0`) debe tener `ventaId` de una venta **suya**, fiada, al mismo cliente y con `monto ≤ total` (se valida con `getAfter`, así que puede ir en la misma transacción que la venta). Sin `ventaId` = fiar sin venta ⇒ denegado.
+  - *Marcar cargo como pagado* (`pagado: true`, botón heredado de la web): solo el dueño.
+  - *Recordatorio:* el cajero solo puede cambiar `ultimoRecordatorio` del cliente.
+  - *Caja:* el cajero puede cerrar cualquier caja abierta de la bodega (también la que abrió el dueño).
+- **Invitaciones:** cualquiera con sesión puede **leer una** por código (8 caracteres de 31 posibles: ~8,5·10¹¹ combinaciones); **listar** solo las propias (`where('dueno', '==', uid)`). Solo las crea quien no tiene `cuentas/{uid}` (un cajero no invita). El dueño las borra (revocar).
+- **Miembros:** `email` es opcional (≤ 120). El cajero lee su propio miembro aunque esté desactivado (para avisarle); el dueño lista todos. El dueño no puede crear miembros a mano.
+- **Cuentas:** se crean, no se editan. El cajero puede borrar la suya solo si ya no es cajero activo de esa bodega (quitado o desactivado); así vuelve a ser dueño de su ruta o acepta otra bodega. Mientras tenga cuenta en A, no puede entrar a B.
+- **El cajero sigue siendo dueño de su propia ruta** (`users/{suUid}`): no estorba y evita reglas especiales.
+
 ## Flujo
 
 1. **Dueño → Ajustes → Equipo → "Invitar cajero":** se genera un código y un mensaje de WhatsApp listo para enviar ("Hola, te invito a vender en Bodega Lucho con Bodegón. Descarga la app y usa el código ABCD-EFGH").
