@@ -722,6 +722,18 @@ kbd {
   background: var(--sup-2);
   color: var(--texto-2);
   white-space: nowrap;
+  max-width: 100%;
+}
+/* Con poco ancho (320 px, letra grande) el chip parte en dos renglones antes que desbordar. */
+@media (max-width: 479px) {
+  .chip {
+    white-space: normal;
+    border-radius: var(--r-md);
+  }
+  .btn {
+    white-space: normal;
+    text-align: center;
+  }
 }
 .chip-atraso {
   background: var(--deuda-fondo);
@@ -1106,7 +1118,7 @@ body.con-panel {
   margin: 0 0 0.25rem;
 }
 .hoy-monto {
-  font-size: clamp(3rem, 8vw, 4.5rem);
+  font-size: clamp(2.25rem, 1rem + 8vw, 4.5rem);
   margin: 0;
 }
 .hoy-comparacion {
@@ -1160,7 +1172,7 @@ body.con-panel {
 }
 @media (max-width: 767px) {
   .hoy-principal {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .hoy-fila {
     grid-template-columns: 2.5rem 1fr;
@@ -1375,13 +1387,21 @@ body.con-panel {
     grid-area: 2 / 1 / 3 / -1;
     justify-self: start;
   }
+  /* "Paga con" a todo el ancho y los billetes debajo: el monto escrito se lee completo. */
+  .vuelto-fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .billetes button {
+    flex: 1 1 0;
+  }
   .ticket-sombra:has(.ticket-items) {
     --ticket-min: min(14rem, 32dvh);
   }
 }
 .ticket-sombra {
   filter: drop-shadow(0 1px 1px rgba(28, 25, 23, 0.08)) drop-shadow(0 10px 18px rgba(28, 25, 23, 0.1));
-  flex: 0 1 auto;
+  /* Cede alto mucho antes que el cobro (factor 20 contra 1). */
+  flex: 0 20 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1394,8 +1414,7 @@ body.con-panel {
   min-height: var(--ticket-min, min(11.5rem, 32dvh));
 }
 #cobro-zona {
-  /* Cede mucho menos que el ticket: la forma de pago debe seguir a la vista. */
-  flex: 0 0.15 auto;
+  flex: 0 1 auto;
   min-height: 3.5rem;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2375,7 +2394,7 @@ body.con-panel {
 }
 @container reportes (max-width: 56rem) {
   .analisis {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @container reportes (max-width: 44rem) {
@@ -2437,7 +2456,7 @@ body.con-panel {
   margin: 0 0 0.25rem;
 }
 .caja-esperado {
-  font-size: clamp(3rem, 7vw, 4rem);
+  font-size: clamp(2.25rem, 1rem + 7vw, 4rem);
   margin: 0;
 }
 .caja-etiqueta-pie {
@@ -2748,7 +2767,7 @@ body.con-panel {
 
 @media (max-width: 1023px) {
   .caja-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 2rem;
   }
 }
@@ -2760,7 +2779,7 @@ body.con-panel {
     flex: 1 1 100%;
   }
   .caja-form-mov .dos-col {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .tabla-cierres thead {
     display: none;
@@ -2920,7 +2939,7 @@ body.con-panel {
 }
 @media (max-width: 899px) {
   .login {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .login-marca {
     padding: 1.5rem 1rem 2rem;

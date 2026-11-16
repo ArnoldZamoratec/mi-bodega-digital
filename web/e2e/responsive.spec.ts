@@ -38,7 +38,7 @@ const MATRIZ: Dispositivo[] = [
 ];
 
 /** Escala de fuente de Android al 130 % (raíz de 20.8 px) en una muestra de la matriz. */
-const LETRA_GRANDE = ['Android 360', 'Celular echado 844', 'Tablet 768', 'POS 1024', 'Laptop 1366'];
+const LETRA_GRANDE = ['Android 320', 'Android 360', 'Celular echado 844', 'Tablet 768', 'POS 1024', 'Laptop 1366'];
 
 const PANTALLAS: Array<{ nombre: string; ruta: string }> = [
   { nombre: 'Ingreso', ruta: '/?demo=1&pantalla=login' },
@@ -129,6 +129,14 @@ for (const d of MATRIZ) {
             await esperarAnimaciones(page);
           }
         }
+      });
+
+      test('Por cobrar: la vista previa de WhatsApp cabe y su botón queda a la vista', async ({ page }) => {
+        await page.goto('/?demo=1#cobrar');
+        await page.locator('[data-recordar]:visible').first().click();
+        await esperarAnimaciones(page);
+        expect(await desbordeHorizontal(page)).toBeLessThanOrEqual(0);
+        expect(await aLaVista(page, '#abrir-wa'), 'Abrir WhatsApp a la vista').toBe(true);
       });
 
       for (const p of PANTALLAS) {
