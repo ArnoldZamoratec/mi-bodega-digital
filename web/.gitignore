@@ -1,0 +1,3 @@
+# Playwright (npm run test:responsive)
+test-results/
+playwright-report/

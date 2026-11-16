@@ -86,3 +86,24 @@ No es una plantilla de SaaS verde. Usa los materiales del mundo del bodeguero:
 5. Movimiento rápido y feedback táctil.
 6. Accesibilidad AA y uso completo con teclado en Vender.
 7. Móvil sin scroll horizontal y objetivos táctiles de 48 px o más.
+
+## 7. Responsive: todos los equipos de una bodega
+
+La web tiene que funcionar igual de bien en un Android barato de 320 px, un celular echado sobre el mostrador, una tablet o POS de 1024×600, una laptop vieja de 1366×768 y un monitor de 2560 px, también con la letra de Android al 130 % y con el zoom del navegador al 200 %.
+
+**Sistema** (`web/css/app.css`, bloque "Sistema responsive"):
+- Todas las medidas van en `rem`; los íconos también. La escala de fuente de Android y el zoom agrandan la interfaz completa, no solo el texto.
+- Cortes de viewport (solo estos): 359 px (celulares de 320 px), 767 px (barra inferior si el alto es mayor de 500 px), **alto ≤ 500 px y ancho ≥ 560 px** (celular echado o zoom 200 %: riel compacto que se desplaza), 1023 px (tablets) y 1920 px (monitores grandes: el contenido se topa y el catálogo gana columnas).
+- Container queries para lo que depende del espacio que le queda al componente: la forma de Vender (`vender`), el catálogo (`catalogo`), el ticket (`ticket`), la franja de KPI y gráficos de Reportes (`reportes`) y la cabecera móvil (`cabecera`).
+- `@media (hover: hover)` para los efectos de hover; `(pointer: coarse)` sube los objetivos a 48 px y oculta las ayudas de teclado (`kbd`). Ninguna acción depende del hover.
+- PWA instalada: `viewport-fit=cover` y `env(safe-area-inset-*)` en cabecera, barra inferior, riel, panel lateral, hoja del ticket, avisos e ingreso. `interactive-widget=resizes-content` y unidades `dvh` hacen que el teclado del celular achique la pantalla en vez de tapar los campos.
+- `prefers-reduced-motion` apaga animaciones y transiciones.
+
+**Vender** (la regla que no se rompe: el total grande y "Cobrar" se ven sin desplazar, en todos los equipos):
+- Celular vertical (Vender con menos de 35 rem de ancho): catálogo y ticket como hoja inferior. Cerrada, la hoja muestra el total en grande y "Cobrar"; abierta, el total sigue en su cabecera y "Cobrar" queda abajo.
+- Celular echado, tablet chica y POS (35 a 60 rem): riel compacto y dos columnas con un ticket angosto (sin cabecera del negocio cuando el alto es de 640 px o menos).
+- Tablet y escritorio: catálogo y ticket fijo. El ticket nunca es más alto que la pantalla: primero cede la lista de ítems (se desplaza por dentro) y después el bloque de cobro, que se desplaza con "Cobrar" pegado abajo.
+
+**Regresión automática:** `npm run test:responsive -w web` (Playwright, solo Chromium) levanta el servidor de desarrollo en modo demo y recorre 22 viewports (más 6 con letra al 130 %, incluido el de 320 px). En cada uno comprueba que ninguna pantalla tenga scroll horizontal y que en Vender, con 4 y con 14 ítems, el total y "Cobrar" estén completos en pantalla y sin nada encima, y que la vista previa de WhatsApp quepa con su botón a la vista. Necesita `npx playwright install chromium` una vez por máquina; por eso no forma parte de `npm run verify`. Para revisar a ojo cualquier tamaño en el Chrome de escritorio: `npm run dev -w web` y abrir `/dev-harness.html?w=360&h=640&fs=20.8&ruta=%2F%3Fdemo%3D1%23vender` (el arnés no entra al build).
+
+Capturas de referencia: `docs/rediseno/responsive/`.

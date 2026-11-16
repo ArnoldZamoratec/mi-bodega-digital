@@ -15,5 +15,5 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client", "vite-plugin-pwa/client", "node"]
   },
-  "include": ["src/**/*.ts", "vite.config.ts", "csp.config.ts", "tailwind.config.ts"]
+  "include": ["src/**/*.ts", "vite.config.ts", "csp.config.ts", "tailwind.config.ts", "playwright.config.ts", "e2e/**/*.ts"]
 }

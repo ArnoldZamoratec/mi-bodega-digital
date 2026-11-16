@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+  Arnés responsive SOLO para desarrollo (`npm run dev -w web` → /dev-harness.html).
+  No entra al build: vite build solo empaqueta index.html.
+  Parámetros: ?w=360&h=640&ruta=%2F%3Fdemo%3D1%23vender&fs=20.8
+  (fs = font-size raíz en px para simular la escala de fuente de Android al 130 %).
+  Expone window.medir() → { overflow, scrollWidth, clientWidth } del iframe.
+-->
+<html lang="es-PE">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Arnés responsive</title>
+    <style>
+      body { margin: 0; padding: 12px; background: #d9d4cb; font: 13px system-ui, sans-serif; }
+      iframe { display: block; border: 0; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2); }
+      p { margin: 0 0 8px; }
+    </style>
+  </head>
+  <body>
+    <p id="info"></p>
+    <iframe id="marco" title="Vista a probar"></iframe>
+    <script type="module">
+      const p = new URLSearchParams(location.search);
+      const w = Number(p.get('w') ?? 360);
+      const h = Number(p.get('h') ?? 640);
+      const ruta = p.get('ruta') ?? '/?demo=1#vender';
+      const fs = p.get('fs');
+      const marco = document.getElementById('marco');
+      marco.width = String(w);
+      marco.height = String(h);
+      marco.src = ruta;
+      document.getElementById('info').textContent = `${w}×${h} · ${ruta}${fs ? ` · raíz ${fs}px` : ''}`;
+      marco.addEventListener('load', () => {
+        if (fs) marco.contentDocument.documentElement.style.fontSize = `${fs}px`;
+      });
+      window.medir = () => {
+        const d = marco.contentDocument.scrollingElement;
+        return { overflow: d.scrollWidth > d.clientWidth, scrollWidth: d.scrollWidth, clientWidth: d.clientWidth };
+      };
+    </script>
+  </body>
+</html>
