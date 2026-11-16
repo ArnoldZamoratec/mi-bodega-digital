@@ -7,6 +7,7 @@ import { formatearSoles } from '@/domain/rules/dinero';
 import { normalizarTexto } from '@/domain/rules/productos';
 
 import { useSaldos, useTema } from '../hooks/useDerivados';
+import { useEstiloDialogo } from '../hooks/useDisposicion';
 import { useDatos } from '../stores/datosStore';
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
 export function SelectorCliente({ clienteId, onSeleccionar, onNuevoCliente }: Props) {
   const tema = useTema();
   const [abierto, setAbierto] = useState(false);
+  // En tablets la hoja no se estira a todo el ancho (D-30).
+  const estiloDialogo = useEstiloDialogo();
   const [busqueda, setBusqueda] = useState('');
   const clientes = useDatos((s) => s.clientes.datos);
   const saldos = useSaldos();
@@ -51,7 +54,11 @@ export function SelectorCliente({ clienteId, onSeleccionar, onNuevoCliente }: Pr
         <Modal
           visible={abierto}
           onDismiss={() => setAbierto(false)}
-          contentContainerStyle={[estilos.modal, { backgroundColor: tema.colors.surface }]}
+          contentContainerStyle={[
+            estilos.modal,
+            estiloDialogo,
+            { backgroundColor: tema.colors.surface },
+          ]}
         >
           <Text variant="titleLarge" style={estilos.titulo}>
             ¿A quién se fía?

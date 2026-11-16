@@ -24,6 +24,13 @@ import { Presionable } from '../../components/Presionable';
 import { SimboloBodegon } from '../../components/SimboloBodegon';
 import { fechaLarga, iniciales, saludo } from '../../formato';
 import { useProductosVisibles, useTema } from '../../hooks/useDerivados';
+import {
+  ANCHO_PANEL_TICKET,
+  ANCHO_RIEL,
+  columnasPorAncho,
+  MULTIPLICADOR_MONTO,
+  useDisposicion,
+} from '../../hooks/useDisposicion';
 import { useVentasHoy } from '../../hooks/useVentasHoy';
 import type { PantallaTab } from '../../navigation/tipos';
 import { haptica } from '../../services/haptica';
@@ -33,15 +40,17 @@ import { useCromoInferior } from '../../stores/cromoInferiorStore';
 import { useDatos } from '../../stores/datosStore';
 import { colorAvatar } from '../../theme/tema';
 import { BRILLO_INTERIOR, espacio, NUMEROS, radio, TACTIL_MIN } from '../../theme/tokens';
-import { ANCHO_CONTENIDO, columnasCuadricula, useVentana } from '../../theme/ventana';
+import { ANCHO_CONTENIDO, useVentana } from '../../theme/ventana';
 import { DialogoMontoLibre } from './DialogoMontoLibre';
+import { PanelTicket } from './PanelTicket';
 
 /**
  * Wireframe POS:
  *  [encabezado: fecha · nombre de la bodega · métricas · 🔍 buscar [S/+] [📷]]
  *  [banner offline/pendientes]
  *  [cuadrícula de productos (2 col.): avatar · nombre · stock · S/ precio · (+ / n)]  ← toque = +1
- *  [barra flotante: n · S/ total · Cobrar →]
+ *  [barra flotante: n · S/ total · Cobrar →]                      (compacta: teléfono)
+ *  [catálogo (3–6 col.) | ticket persistente: ítems · total · Cobrar]  (media/expandida, D-30)
  * Estados: cargando · vacío (sin productos / sin resultados) · error · normal.
  */
 export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
@@ -77,14 +86,26 @@ export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
     [agregar],
   );
 
-  // Columnas según la clase de ventana M3 (2 en teléfono, 3–5 en tablet/horizontal) y
-  // ancho fijo por tarjeta: con un número impar de productos la última no se estira.
+  // D-30: desde la disposición media el ticket queda fijo a la derecha; el catálogo usa el
+  // resto. Las columnas salen del ancho REAL del catálogo (medido con onLayout; antes de
+  // medir se estima restando riel y ticket) y de la escala de letra. Ancho fijo por
+  // tarjeta: con un número impar de productos la última no se estira.
   const ventana = useVentana();
+  const disposicion = useDisposicion();
   const insets = useSafeAreaInsets();
-  const columnas = columnasCuadricula(ventana.ancho);
-  const anchoUtil =
-    Math.min(ventana.ancho - insets.left - insets.right, ANCHO_CONTENIDO.cuadricula) -
-    espacio.md * 2;
+  const conTicket = disposicion.conPanelLateral;
+  const anchoTicket =
+    disposicion.disposicion === 'expandida'
+      ? ANCHO_PANEL_TICKET.expandida
+      : ANCHO_PANEL_TICKET.media;
+  const [anchoMedido, setAnchoMedido] = useState<number | null>(null);
+  const anchoCatalogo =
+    anchoMedido ??
+    ventana.ancho -
+      (disposicion.dosPaneles ? ANCHO_RIEL : insets.left) -
+      (conTicket ? anchoTicket : insets.right);
+  const anchoUtil = Math.min(anchoCatalogo, ANCHO_CONTENIDO.cuadricula) - espacio.md * 2;
+  const columnas = columnasPorAncho(anchoUtil, disposicion.escalaFuente, espacio.sm);
   const anchoTarjeta = Math.floor((anchoUtil - espacio.sm * (columnas - 1)) / columnas);
   // Teléfono angosto o letra grande: el botón de la barra muestra solo la flecha.
   const cobrarCompacto = ventana.angosta || ventana.fuenteGrande;
@@ -107,7 +128,8 @@ export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
 
   const unidades = unidadesEnCarrito(items);
   const total = totalCarrito(items);
-  const hayBarra = unidades > 0;
+  // Con el ticket a la vista la barra flotante sobra.
+  const hayBarra = unidades > 0 && !conTicket;
 
   // Los avisos flotan encima de la barra de Cobrar solo mientras esta pantalla la muestra.
   useFocusEffect(
@@ -148,13 +170,14 @@ export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
         keyExtractor={(p) => p.id}
         renderItem={renderItem}
         numColumns={columnas}
-        columnWrapperStyle={estilos.columnas}
+        columnWrapperStyle={columnas > 1 ? estilos.columnas : undefined}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           estilos.lista,
           {
-            paddingLeft: espacio.md + insets.left,
-            paddingRight: espacio.md + insets.right,
+            // El catálogo ya está dentro del área segura cuando lo mide onLayout.
+            paddingLeft: espacio.md,
+            paddingRight: espacio.md,
             // El último producto nunca queda debajo de la barra de Cobrar (alto medido).
             paddingBottom: hayBarra ? altoBarra + espacio.lg : espacio.xl,
           },
@@ -243,7 +266,31 @@ export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
           haptica.toque();
         }}
       />
-      {contenido}
+      <View style={estilos.cuerpo}>
+        <View
+          style={[
+            estilos.flex,
+            // En compacta el catálogo va de borde a borde respetando muescas laterales.
+            conTicket
+              ? { paddingLeft: insets.left }
+              : {
+                  paddingLeft: insets.left,
+                  paddingRight: insets.right,
+                },
+          ]}
+          onLayout={(e) =>
+            setAnchoMedido(
+              e.nativeEvent.layout.width - insets.left - (conTicket ? 0 : insets.right),
+            )
+          }
+          testID="catalogo-pos"
+        >
+          {contenido}
+        </View>
+        {conTicket ? (
+          <PanelTicket ancho={anchoTicket} onCobrar={() => navigation.navigate('Cobro')} />
+        ) : null}
+      </View>
       {hayBarra ? (
         <Aparecer
           style={[
@@ -285,6 +332,7 @@ export function PosScreen({ navigation }: PantallaTab<'Vender'>) {
                 <Text
                   variant="titleLarge"
                   style={[NUMEROS, { color: tema.colors.surface }]}
+                  maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
                   // El total nunca se parte en dos líneas: se ajusta un poco si no entra.
                   numberOfLines={1}
                   adjustsFontSizeToFit
@@ -434,7 +482,15 @@ const TarjetaProducto = memo(function TarjetaProducto({
         </Text>
       </View>
 
-      <Text variant="titleLarge" style={[NUMEROS, { color: tema.colors.onSurface }]}>
+      <Text
+        variant="titleLarge"
+        style={[NUMEROS, { color: tema.colors.onSurface }]}
+        // A 200 % el precio no entra en la tarjeta: tope 1.6× y una sola línea.
+        maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {formatearSoles(producto.precio)}
       </Text>
     </Presionable>
@@ -443,6 +499,7 @@ const TarjetaProducto = memo(function TarjetaProducto({
 
 const estilos = StyleSheet.create({
   flex: { flex: 1 },
+  cuerpo: { flex: 1, flexDirection: 'row' },
   buscador: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs },
   marca: {
     width: 48,

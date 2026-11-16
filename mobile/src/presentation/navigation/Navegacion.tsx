@@ -4,9 +4,12 @@ import {
   type NativeStackNavigationOptions,
 } from '@react-navigation/native-stack';
 import { setStatusBarStyle } from 'expo-status-bar';
+import type { ReactNode } from 'react';
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EstadoVista } from '../components/EstadoVista';
 import { useTema } from '../hooks/useDerivados';
+import { useDisposicion } from '../hooks/useDisposicion';
 import { useReducirMovimiento } from '../hooks/useReducirMovimiento';
 import { AjustesScreen } from '../screens/ajustes/AjustesScreen';
 import { DatosNegocioScreen } from '../screens/ajustes/DatosNegocioScreen';
@@ -61,9 +64,25 @@ function useCabecera() {
   };
 }
 
+/**
+ * Con el riel a la izquierda, la muesca/cámara lateral ya la absorbe el riel: las pantallas
+ * ven inset izquierdo 0 para no sumar ese margen dos veces.
+ */
+function SinInsetIzquierdo({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <SafeAreaInsetsContext.Provider value={{ ...insets, left: 0 }}>
+      {children}
+    </SafeAreaInsetsContext.Provider>
+  );
+}
+
 function PestanasPrincipales() {
   const enCarrito = useCarrito((s) => s.items.reduce((n, i) => n + i.cantidad, 0));
   const reducirMovimiento = useReducirMovimiento();
+  // D-30: barra inferior en compacta/media; riel lateral (tabBarPosition 'left', soportado
+  // por @react-navigation/bottom-tabs v7) en expandida: tablets horizontales y POS.
+  const riel = useDisposicion().dosPaneles;
 
   return (
     <Tabs.Navigator
@@ -72,14 +91,19 @@ function PestanasPrincipales() {
           {...props}
           iconos={ICONOS_PESTANAS}
           insignias={{ Vender: enCarrito > 0 ? enCarrito : undefined }}
+          riel={riel}
         />
       )}
+      screenLayout={
+        riel ? ({ children }) => <SinInsetIzquierdo>{children}</SinInsetIzquierdo> : undefined
+      }
       // Cada pestaña dibuja su propio encabezado con degradado. Al cambiar de pestaña el
       // contenido se desplaza levemente en la dirección del toque ("shift").
       screenOptions={{
         headerShown: false,
         lazy: true,
         animation: reducirMovimiento ? 'none' : 'shift',
+        tabBarPosition: riel ? 'left' : 'bottom',
       }}
     >
       <Tabs.Screen name="Vender" component={PosScreen} options={{ tabBarLabel: 'Vender' }} />

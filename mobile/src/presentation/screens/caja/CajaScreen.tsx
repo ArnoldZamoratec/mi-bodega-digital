@@ -19,6 +19,7 @@ import { EstadoVista } from '../../components/EstadoVista';
 import { Tarjeta } from '../../components/Tarjeta';
 import { useCaja } from '../../hooks/useCaja';
 import { useTema } from '../../hooks/useDerivados';
+import { MULTIPLICADOR_MONTO, useDisposicion, useEstiloDialogo } from '../../hooks/useDisposicion';
 import type { PantallaRaiz } from '../../navigation/tipos';
 import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
@@ -52,6 +53,7 @@ const sinSenal = (texto: string) =>
  *  con caja abierta → [Efectivo esperado S/ … + desglose] [Ingreso] [Egreso]
  *                     [movimientos] [Cerrar caja → contar efectivo → esperado vs contado]
  *  siempre          → [Cierres anteriores: fecha · esperado · contado · sobrante/faltante]
+ * Expandida (D-30): caja actual a la izquierda y cierres anteriores a la derecha.
  */
 export function CajaScreen(_props: PantallaRaiz<'Caja'>) {
   const tema = useTema();
@@ -61,6 +63,7 @@ export function CajaScreen(_props: PantallaRaiz<'Caja'>) {
   const [abriendo, setAbriendo] = useState(false);
   const [dialogoMov, setDialogoMov] = useState<TipoMovimientoCaja | null>(null);
   const [cerrando, setCerrando] = useState(false);
+  const { dosPaneles } = useDisposicion();
 
   if (caja.cargando) return <EstadoVista tipo="cargando" />;
   if (caja.error && caja.cajas.length === 0)
@@ -85,56 +88,72 @@ export function CajaScreen(_props: PantallaRaiz<'Caja'>) {
 
   return (
     <View style={[estilos.flex, { backgroundColor: tema.colors.background }]}>
-      <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
-        {caja.abierta ? (
-          <CajaAbierta
-            caja={caja.abierta}
-            resumen={caja.resumen}
-            movimientos={caja.movimientos}
-            onIngreso={() => setDialogoMov('ingreso')}
-            onEgreso={() => setDialogoMov('egreso')}
-            onCerrar={() => setCerrando(true)}
-          />
-        ) : (
-          <Tarjeta nivel={2} style={estilos.bloque}>
-            <Text variant="titleLarge">Abrir caja</Text>
-            <Text variant="bodyMedium" style={tenue}>
-              ¿Con cuánto sencillo empiezas? Al cerrar, Bodegón te dice cuánto debería haber en el
-              cajón.
-            </Text>
-            <TextInput
-              mode="outlined"
-              label="Monto inicial"
-              value={montoInicial}
-              onChangeText={setMontoInicial}
-              keyboardType="decimal-pad"
-              left={<TextInput.Affix text="S/" />}
-              testID="campo-monto-inicial"
-            />
-            <Button
-              mode="contained"
-              icon="cash-register"
-              onPress={() => void abrir()}
-              loading={abriendo}
-              disabled={abriendo}
-              contentStyle={estilos.botonAlto}
-              testID="boton-abrir-caja"
-            >
-              Abrir caja
-            </Button>
-          </Tarjeta>
-        )}
+      <ScrollView
+        contentContainerStyle={[estilos.contenido, dosPaneles && estilos.contenidoAncho]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={dosPaneles ? estilos.columnas : estilos.pila}
+          testID={dosPaneles ? 'caja-dos-columnas' : 'caja-una-columna'}
+        >
+          <View style={[estilos.pila, dosPaneles && estilos.columna]}>
+            {caja.abierta ? (
+              <CajaAbierta
+                caja={caja.abierta}
+                resumen={caja.resumen}
+                movimientos={caja.movimientos}
+                onIngreso={() => setDialogoMov('ingreso')}
+                onEgreso={() => setDialogoMov('egreso')}
+                onCerrar={() => setCerrando(true)}
+              />
+            ) : (
+              <Tarjeta nivel={2} style={estilos.bloque}>
+                <Text variant="titleLarge">Abrir caja</Text>
+                <Text variant="bodyMedium" style={tenue}>
+                  ¿Con cuánto sencillo empiezas? Al cerrar, Bodegón te dice cuánto debería haber en
+                  el cajón.
+                </Text>
+                <TextInput
+                  mode="outlined"
+                  label="Monto inicial"
+                  value={montoInicial}
+                  onChangeText={setMontoInicial}
+                  keyboardType="decimal-pad"
+                  left={<TextInput.Affix text="S/" />}
+                  testID="campo-monto-inicial"
+                />
+                <Button
+                  mode="contained"
+                  icon="cash-register"
+                  onPress={() => void abrir()}
+                  loading={abriendo}
+                  disabled={abriendo}
+                  contentStyle={estilos.botonAlto}
+                  testID="boton-abrir-caja"
+                >
+                  Abrir caja
+                </Button>
+              </Tarjeta>
+            )}
+          </View>
 
-        <Text variant="labelLarge" style={[estilos.seccion, tenue]} accessibilityRole="header">
-          Cierres anteriores
-        </Text>
-        {caja.historial.length === 0 ? (
-          <Text variant="bodyMedium" style={tenue}>
-            Aún no cerraste ninguna caja.
-          </Text>
-        ) : (
-          caja.historial.map((c) => <FilaCierre key={c.id} caja={c} />)
-        )}
+          <View style={[estilos.pila, dosPaneles && estilos.columna]}>
+            <Text
+              variant="labelLarge"
+              style={[!dosPaneles && estilos.seccion, tenue]}
+              accessibilityRole="header"
+            >
+              Cierres anteriores
+            </Text>
+            {caja.historial.length === 0 ? (
+              <Text variant="bodyMedium" style={tenue}>
+                Aún no cerraste ninguna caja.
+              </Text>
+            ) : (
+              caja.historial.map((c) => <FilaCierre key={c.id} caja={c} />)
+            )}
+          </View>
+        </View>
       </ScrollView>
 
       <DialogoMovimiento
@@ -220,13 +239,14 @@ function CajaAbierta({
         <Text
           variant="displaySmall"
           style={[NUMEROS, { color: tema.colors.primary }]}
+          maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
           testID="caja-esperado"
         >
           {resumen ? formatearSoles(resumen.esperado) : '…'}
         </Text>
         {filas.map(([etiqueta, id, monto]) => (
           <View key={id} style={estilos.filaDetalle}>
-            <Text variant="bodyMedium" style={tenue}>
+            <Text variant="bodyMedium" style={[tenue, estilos.encoger]}>
               {etiqueta}
             </Text>
             <Text variant="bodyMedium" style={NUMEROS} testID={id}>
@@ -347,6 +367,7 @@ function DialogoMovimiento({
   const [monto, setMonto] = useState('');
   const [motivo, setMotivo] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const estiloDialogo = useEstiloDialogo();
   const valor = parsearSoles(monto);
   const valido = Number.isFinite(valor) && valor > 0 && motivo.trim().length > 0;
 
@@ -358,7 +379,12 @@ function DialogoMovimiento({
 
   return (
     <Portal>
-      <Dialog visible={tipo !== null} onDismiss={cerrar} testID="dialogo-movimiento-caja">
+      <Dialog
+        visible={tipo !== null}
+        onDismiss={cerrar}
+        style={estiloDialogo}
+        testID="dialogo-movimiento-caja"
+      >
         <Dialog.Title>
           {tipo === 'egreso' ? 'Sacar dinero (egreso)' : 'Meter dinero (ingreso)'}
         </Dialog.Title>
@@ -421,6 +447,7 @@ function DialogoCierre({
   const tema = useTema();
   const [texto, setTexto] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const estiloDialogo = useEstiloDialogo();
   const contado = parsearSoles(texto);
   const valido = Number.isFinite(contado) && contado >= 0 && esperado !== null;
   const resultado = valido && esperado !== null ? arqueo(contado, esperado) : null;
@@ -439,7 +466,12 @@ function DialogoCierre({
 
   return (
     <Portal>
-      <Dialog visible={visible} onDismiss={cerrar} testID="dialogo-cierre-caja">
+      <Dialog
+        visible={visible}
+        onDismiss={cerrar}
+        style={estiloDialogo}
+        testID="dialogo-cierre-caja"
+      >
         <Dialog.Title>Cerrar caja</Dialog.Title>
         <Dialog.Content style={estilos.dialogo}>
           <Text variant="bodyMedium">Cuenta el efectivo del cajón y escribe el total.</Text>
@@ -509,6 +541,12 @@ const estilos = StyleSheet.create({
     maxWidth: ANCHO_CONTENIDO.lectura,
     alignSelf: 'center',
   },
+  contenidoAncho: { maxWidth: ANCHO_CONTENIDO.cuadricula },
+  pila: { gap: espacio.sm },
+  columnas: { flexDirection: 'row', alignItems: 'flex-start', gap: espacio.lg },
+  columna: { flex: 1 },
+  // a 200 % la etiqueta del desglose se parte en vez de empujar el monto fuera.
+  encoger: { flexShrink: 1 },
   bloque: { padding: espacio.lg, gap: espacio.sm },
   fila: { flexDirection: 'row', gap: espacio.xs, marginTop: espacio.xs },
   filaDetalle: { flexDirection: 'row', justifyContent: 'space-between', gap: espacio.sm },

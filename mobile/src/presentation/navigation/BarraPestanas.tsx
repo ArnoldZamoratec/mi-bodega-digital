@@ -10,11 +10,17 @@ import { useReducirMovimiento } from '../hooks/useReducirMovimiento';
 import { haptica } from '../services/haptica';
 import { useCromoInferior } from '../stores/cromoInferiorStore';
 import { espacio, movimiento, NUMEROS, radio } from '../theme/tokens';
+import { ANCHO_RIEL } from '../hooks/useDisposicion';
 import type { IconoPestana } from './iconosPestanas';
 
 interface Props extends BottomTabBarProps {
   iconos: Record<string, IconoPestana>;
   insignias?: Record<string, number | undefined>;
+  /**
+   * Riel lateral (M3 Navigation Rail) en disposición expandida: tablets horizontales y POS
+   * de mostrador. Libera el alto que la barra inferior le quita a la lista (D-30).
+   */
+  riel?: boolean;
 }
 
 /**
@@ -22,26 +28,53 @@ interface Props extends BottomTabBarProps {
  * de marca (contorno verde + relleno ámbar, como el toldo del logo) que rebota al activarse,
  * etiquetas siempre visibles y objetivo táctil de toda la columna.
  */
-export function BarraPestanas({ state, descriptors, navigation, iconos, insignias }: Props) {
+export function BarraPestanas({
+  state,
+  descriptors,
+  navigation,
+  iconos,
+  insignias,
+  riel = false,
+}: Props) {
   const tema = useTema();
   const insets = useSafeAreaInsets();
   const fijarAlto = useCromoInferior((s) => s.fijarAltoPestanas);
 
+  // Con el riel no hay nada anclado al pie: los avisos bajan hasta el borde.
+  useEffect(() => {
+    if (riel) fijarAlto(0);
+  }, [riel, fijarAlto]);
+
   return (
     <View
-      onLayout={(e) => fijarAlto(e.nativeEvent.layout.height)}
+      onLayout={riel ? undefined : (e) => fijarAlto(e.nativeEvent.layout.height)}
       style={[
-        estilos.barra,
-        {
-          paddingBottom: Math.max(insets.bottom, espacio.xs),
-          paddingLeft: espacio.xxs + insets.left,
-          paddingRight: espacio.xxs + insets.right,
-          backgroundColor: tema.colors.surface,
-          borderTopColor: tema.extra.borde,
-          boxShadow: tema.extra.sombraArriba,
-        },
+        riel
+          ? [
+              estilos.riel,
+              {
+                // El riel absorbe la muesca/cámara lateral y la barra de estado.
+                width: ANCHO_RIEL + insets.left,
+                paddingTop: insets.top + espacio.lg,
+                paddingBottom: insets.bottom + espacio.md,
+                paddingLeft: insets.left,
+                borderRightColor: tema.extra.borde,
+              },
+            ]
+          : [
+              estilos.barra,
+              {
+                paddingBottom: Math.max(insets.bottom, espacio.xs),
+                paddingLeft: espacio.xxs + insets.left,
+                paddingRight: espacio.xxs + insets.right,
+                borderTopColor: tema.extra.borde,
+                boxShadow: tema.extra.sombraArriba,
+              },
+            ],
+        { backgroundColor: tema.colors.surface },
       ]}
       accessibilityRole="tablist"
+      testID={riel ? 'riel-navegacion' : 'barra-pestanas'}
     >
       {state.routes.map((ruta, i) => {
         const activo = state.index === i;
@@ -72,7 +105,7 @@ export function BarraPestanas({ state, descriptors, navigation, iconos, insignia
             accessibilityState={{ selected: activo }}
             accessibilityLabel={insignia ? `${etiqueta}, ${insignia} en el carrito` : etiqueta}
             testID={`tab-${ruta.name}`}
-            style={estilos.item}
+            style={riel ? estilos.itemRiel : estilos.item}
           >
             <Pildora activo={activo}>
               {icono ? <IconoAnimado icono={icono} activo={activo} /> : null}
@@ -196,6 +229,14 @@ const estilos = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth * 2,
   },
   item: { flex: 1, alignItems: 'center', gap: espacio.xxs, minHeight: 56 },
+  riel: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: espacio.sm,
+    borderRightWidth: StyleSheet.hairlineWidth * 2,
+  },
+  // M3: destinos de 56dp de ancho útil agrupados arriba; alto mínimo 56dp (> 48dp táctiles).
+  itemRiel: { alignItems: 'center', gap: espacio.xxs, minHeight: 56, paddingHorizontal: 4 },
   // En 320dp cada columna mide ~62dp: la píldora se adapta en vez de desbordar.
   pildora: {
     width: '100%',

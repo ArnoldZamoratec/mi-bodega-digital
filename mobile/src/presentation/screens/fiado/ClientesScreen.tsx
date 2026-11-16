@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { memo, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { FAB, Text } from 'react-native-paper';
+import { FAB, IconButton, Text } from 'react-native-paper';
 
 import type { Cliente } from '@/domain/entities';
 import { formatearSoles, sumarSoles } from '@/domain/rules/dinero';
@@ -11,15 +11,18 @@ import { EntradaLista } from '../../components/Aparecer';
 import { BannerConexion } from '../../components/BannerConexion';
 import { Buscador } from '../../components/Buscador';
 import { ChipHero, EncabezadoHero, FiltrosHero, sobreHero } from '../../components/EncabezadoHero';
+import { DosPaneles } from '../../components/DosPaneles';
 import { EstadoVista } from '../../components/EstadoVista';
 import { Presionable } from '../../components/Presionable';
 import { iniciales } from '../../formato';
 import { useSaldos, useTema } from '../../hooks/useDerivados';
+import { MULTIPLICADOR_MONTO, useDisposicion } from '../../hooks/useDisposicion';
 import type { PantallaTab } from '../../navigation/tipos';
 import { useDatos } from '../../stores/datosStore';
 import { colorAvatar } from '../../theme/tema';
 import { BRILLO_INTERIOR, espacio, NUMEROS, radio } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
+import { DetalleCliente } from './ClienteDetalleScreen';
 
 /**
  * Wireframe Fiado:
@@ -27,6 +30,7 @@ import { ANCHO_CONTENIDO } from '../../theme/ventana';
  *  [🔍 buscar] [chip: Con deuda]
  *  [fila: avatar · nombre · teléfono · saldo (rojo debe / verde a favor)]
  *  [FAB + Cliente]
+ * Expandida (D-30): lista a la izquierda y detalle del cliente elegido a la derecha.
  */
 export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
   const tema = useTema();
@@ -35,6 +39,8 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
   const saldos = useSaldos();
   const [busqueda, setBusqueda] = useState('');
   const [soloDeuda, setSoloDeuda] = useState(false);
+  const { dosPaneles } = useDisposicion();
+  const [elegido, setElegido] = useState<string | null>(null);
 
   const porCobrar = useMemo(() => sumarSoles([...saldos.values()].filter((s) => s > 0)), [saldos]);
   const conDeuda = useMemo(() => [...saldos.values()].filter((s) => s > 0).length, [saldos]);
@@ -46,6 +52,11 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
         (!soloDeuda || (saldos.get(c.id) ?? 0) > 0),
     );
   }, [clientes.datos, busqueda, soloDeuda, saldos]);
+  // En dos paneles siempre hay alguien a la vista: el elegido o el primero de la lista.
+  const seleccionado =
+    dosPaneles && visibles.length > 0
+      ? (visibles.find((c) => c.id === elegido) ?? visibles[0])
+      : undefined;
 
   let contenido;
   if (clientes.cargando) contenido = <EstadoVista tipo="cargando" esqueleto />;
@@ -82,7 +93,12 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
               cliente={item}
               saldo={saldos.get(item.id) ?? 0}
               calculando={movimientosCargando}
-              onPress={() => navigation.navigate('ClienteDetalle', { clienteId: item.id })}
+              seleccionado={seleccionado?.id === item.id}
+              onPress={() =>
+                dosPaneles
+                  ? setElegido(item.id)
+                  : navigation.navigate('ClienteDetalle', { clienteId: item.id })
+              }
             />
           </EntradaLista>
         )}
@@ -103,6 +119,7 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
           <Text
             variant="displaySmall"
             style={[NUMEROS, { color: sobreHero.texto }]}
+            maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
             testID="total-por-cobrar"
           >
             {formatearSoles(porCobrar)}
@@ -145,7 +162,37 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
         </FiltrosHero>
       </EncabezadoHero>
       <BannerConexion onPress={() => navigation.navigate('VentasPendientes')} />
-      {contenido}
+      {dosPaneles && visibles.length > 0 && seleccionado ? (
+        <DosPaneles
+          testID="fiado-dos-paneles"
+          lista={contenido}
+          detalle={
+            <DetalleCliente
+              key={seleccionado.id}
+              clienteId={seleccionado.id}
+              onMovimiento={(tipo) =>
+                navigation.navigate('MovimientoForm', { clienteId: seleccionado.id, tipo })
+              }
+              cabecera={
+                <View style={estilos.cabeceraPanel}>
+                  <Text variant="titleLarge" style={estilos.flex} numberOfLines={2}>
+                    {seleccionado.nombre}
+                  </Text>
+                  <IconButton
+                    icon="pencil"
+                    onPress={() =>
+                      navigation.navigate('ClienteForm', { clienteId: seleccionado.id })
+                    }
+                    accessibilityLabel="Editar cliente"
+                  />
+                </View>
+              }
+            />
+          }
+        />
+      ) : (
+        contenido
+      )}
       <FAB
         icon="account-plus"
         label="Cliente"
@@ -168,11 +215,14 @@ const FilaCliente = memo(function FilaCliente({
   cliente,
   saldo,
   calculando,
+  seleccionado = false,
   onPress,
 }: {
   cliente: Cliente;
   saldo: number;
   calculando: boolean;
+  /** Fila abierta en el panel de detalle (solo dos paneles). */
+  seleccionado?: boolean;
   onPress: () => void;
 }) {
   const tema = useTema();
@@ -193,12 +243,13 @@ const FilaCliente = memo(function FilaCliente({
       style={[
         estilos.fila,
         {
-          backgroundColor: tema.colors.surface,
-          borderColor: tema.extra.borde,
+          backgroundColor: seleccionado ? tema.colors.secondaryContainer : tema.colors.surface,
+          borderColor: seleccionado ? tema.colors.primary : tema.extra.borde,
           boxShadow: tema.extra.sombra[1],
         },
       ]}
       accessibilityRole="button"
+      accessibilityState={{ selected: seleccionado }}
       accessibilityLabel={`${cliente.nombre}, ${etiqueta.toLowerCase()} ${formatearSoles(saldo)}`}
       testID={`cliente-${cliente.nombre}`}
     >
@@ -275,5 +326,6 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
   },
   saldo: { alignItems: 'flex-end' },
+  cabeceraPanel: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs },
   fab: { position: 'absolute', right: espacio.md, bottom: espacio.md, borderRadius: radio.lg },
 });

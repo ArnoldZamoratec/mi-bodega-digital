@@ -8,6 +8,7 @@ import { aCentimos, formatearSoles, parsearSoles } from '@/domain/rules/dinero';
 import { Presionable } from '../../components/Presionable';
 import { useAlturaTeclado } from '../../hooks/useAlturaTeclado';
 import { useTema } from '../../hooks/useDerivados';
+import { useEstiloDialogo } from '../../hooks/useDisposicion';
 import { espacio, NUMEROS, radio, TACTIL_MIN } from '../../theme/tokens';
 
 /** Montos típicos de bodega: pan, caramelos, una gaseosa chica. */
@@ -27,6 +28,7 @@ interface Props {
  */
 export function DialogoMontoLibre({ visible, onCerrar, onAgregar }: Props) {
   const tema = useTema();
+  const estiloDialogo = useEstiloDialogo();
   const teclado = useAlturaTeclado();
   const [texto, setTexto] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -61,6 +63,7 @@ export function DialogoMontoLibre({ visible, onCerrar, onAgregar }: Props) {
         onDismiss={cerrar}
         style={[
           estilos.dialogo,
+          estiloDialogo,
           // Con edge-to-edge el teclado tapaba la descripción y los botones: el margen
           // inferior hace que el diálogo se centre en el espacio que queda libre.
           { backgroundColor: tema.colors.surface, marginBottom: teclado },

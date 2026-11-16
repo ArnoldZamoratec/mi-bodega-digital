@@ -22,10 +22,12 @@ import {
   FilaDatosHero,
   FiltrosHero,
 } from '../../components/EncabezadoHero';
+import { DosPaneles } from '../../components/DosPaneles';
 import { EstadoVista } from '../../components/EstadoVista';
 import { Presionable } from '../../components/Presionable';
 import { iniciales } from '../../formato';
 import { useProductosVisibles, useTema } from '../../hooks/useDerivados';
+import { useDisposicion } from '../../hooks/useDisposicion';
 import type { PantallaTab } from '../../navigation/tipos';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
@@ -33,6 +35,7 @@ import { useRed } from '../../stores/redStore';
 import { colorAvatar } from '../../theme/tema';
 import { BRILLO_INTERIOR, espacio, radio } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
+import { FichaProducto } from './FichaProducto';
 
 /**
  * Wireframe Inventario:
@@ -40,6 +43,7 @@ import { ANCHO_CONTENIDO } from '../../theme/ventana';
  *  [fila: avatar · nombre · S/ precio · estado de stock · ›]  ← toque = editar (y eliminar)
  *  [FAB +]
  * Estados: cargando · vacío · sin resultados · error · normal.
+ * Expandida (D-30): lista a la izquierda y ficha del producto elegido a la derecha.
  */
 export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
   const tema = useTema();
@@ -48,6 +52,8 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
   const { cargando, error } = useDatos((s) => s.productos);
   const [busqueda, setBusqueda] = useState('');
   const [soloBajo, setSoloBajo] = useState(false);
+  const { dosPaneles } = useDisposicion();
+  const [elegido, setElegido] = useState<string | null>(null);
 
   const bajos = useMemo(() => productos.filter((p) => esStockBajo(p)).length, [productos]);
   /** Valor de venta de lo que hay en estante (solo productos con stock controlado y > 0). */
@@ -60,9 +66,15 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
     return soloBajo ? filtrados.filter((p) => esStockBajo(p)) : filtrados;
   }, [productos, busqueda, soloBajo]);
 
+  const seleccionado = dosPaneles
+    ? (visibles.find((p) => p.id === elegido) ?? visibles[0])
+    : undefined;
+
+  // En dos paneles el toque elige (la ficha ofrece "Editar"); en teléfono abre el formulario.
   const editar = useCallback(
-    (p: Producto) => navigation.navigate('ProductoForm', { productoId: p.id }),
-    [navigation],
+    (p: Producto) =>
+      dosPaneles ? setElegido(p.id) : navigation.navigate('ProductoForm', { productoId: p.id }),
+    [navigation, dosPaneles],
   );
 
   let contenido;
@@ -96,7 +108,11 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
         keyExtractor={(p) => p.id}
         renderItem={({ item, index }) => (
           <EntradaLista indice={index}>
-            <TarjetaProducto producto={item} onEditar={editar} />
+            <TarjetaProducto
+              producto={item}
+              onEditar={editar}
+              seleccionado={seleccionado?.id === item.id}
+            />
           </EntradaLista>
         )}
         contentContainerStyle={estilos.lista}
@@ -141,7 +157,20 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
         </FiltrosHero>
       </EncabezadoHero>
       <BannerConexion onPress={() => navigation.navigate('VentasPendientes')} />
-      {contenido}
+      {seleccionado ? (
+        <DosPaneles
+          testID="inventario-dos-paneles"
+          lista={contenido}
+          detalle={
+            <FichaProducto
+              producto={seleccionado}
+              onEditar={() => navigation.navigate('ProductoForm', { productoId: seleccionado.id })}
+            />
+          }
+        />
+      ) : (
+        contenido
+      )}
       <FAB
         icon="plus"
         label="Producto"
@@ -172,13 +201,18 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
 interface TarjetaProps {
   producto: Producto;
   onEditar: (p: Producto) => void;
+  seleccionado?: boolean;
 }
 
 /**
  * Toda la fila abre el producto (objetivo táctil grande). Eliminar vive dentro de la
  * ficha del producto: así no queda una papelera a un dedo del lápiz en cada fila.
  */
-const TarjetaProducto = memo(function TarjetaProducto({ producto, onEditar }: TarjetaProps) {
+const TarjetaProducto = memo(function TarjetaProducto({
+  producto,
+  onEditar,
+  seleccionado = false,
+}: TarjetaProps) {
   const tema = useTema();
   const bajo = esStockBajo(producto);
   const agotado = sinStock(producto);
@@ -200,12 +234,17 @@ const TarjetaProducto = memo(function TarjetaProducto({ producto, onEditar }: Ta
       onPress={() => onEditar(producto)}
       accessibilityRole="button"
       accessibilityLabel={`${producto.nombre}, ${formatearSoles(producto.precio)}, ${estado ? `${estado.texto}, ` : ''}${stock}. Toca para editar`}
+      accessibilityState={{ selected: seleccionado }}
       testID={`inventario-${producto.nombre}`}
       style={[
         estilos.tarjeta,
         {
-          backgroundColor: tema.colors.surface,
-          borderColor: estado ? estado.color : tema.extra.borde,
+          backgroundColor: seleccionado ? tema.colors.secondaryContainer : tema.colors.surface,
+          borderColor: seleccionado
+            ? tema.colors.primary
+            : estado
+              ? estado.color
+              : tema.extra.borde,
           boxShadow: tema.extra.sombra[1],
         },
       ]}

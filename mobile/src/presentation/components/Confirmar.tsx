@@ -3,6 +3,7 @@ import { Button, Dialog, Portal, Text } from 'react-native-paper';
 import { create } from 'zustand';
 
 import { useTema } from '../hooks/useDerivados';
+import { useEstiloDialogo } from '../hooks/useDisposicion';
 import { espacio, radio, TACTIL_MIN } from '../theme/tokens';
 import { IconoSuave } from './IconoSuave';
 
@@ -43,6 +44,7 @@ export function DialogoConfirmacion() {
   const tema = useTema();
   const solicitud = useConfirmacion((s) => s.solicitud);
   const destructivo = solicitud?.destructivo ?? false;
+  const estiloDialogo = useEstiloDialogo();
 
   const responder = (ok: boolean) => {
     solicitud?.resolver(ok);
@@ -54,7 +56,7 @@ export function DialogoConfirmacion() {
       <Dialog
         visible={solicitud !== null}
         onDismiss={() => responder(false)}
-        style={[estilos.dialogo, { backgroundColor: tema.colors.surface }]}
+        style={[estilos.dialogo, estiloDialogo, { backgroundColor: tema.colors.surface }]}
         testID="dialogo-confirmar"
       >
         <View style={estilos.icono}>

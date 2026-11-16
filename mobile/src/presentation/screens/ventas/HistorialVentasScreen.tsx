@@ -22,6 +22,7 @@ import { EstadoVista } from '../../components/EstadoVista';
 import { IconoSuave, type NombreIcono } from '../../components/IconoSuave';
 import { Presionable } from '../../components/Presionable';
 import { useTema } from '../../hooks/useDerivados';
+import { useEstiloDialogo } from '../../hooks/useDisposicion';
 import type { PantallaRaiz } from '../../navigation/tipos';
 import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
@@ -302,6 +303,7 @@ function DetalleVenta({
   onAnular,
 }: DetalleProps) {
   const tema = useTema();
+  const estiloDialogo = useEstiloDialogo();
   const [anulando, setAnulando] = useState(false);
   const [motivo, setMotivo] = useState<MotivoAnulacion | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -317,7 +319,7 @@ function DetalleVenta({
       <Dialog
         visible={venta !== null}
         onDismiss={cerrar}
-        style={[estilos.dialogo, { backgroundColor: tema.colors.surface }]}
+        style={[estilos.dialogo, estiloDialogo, { backgroundColor: tema.colors.surface }]}
         testID="detalle-venta"
       >
         {venta ? (

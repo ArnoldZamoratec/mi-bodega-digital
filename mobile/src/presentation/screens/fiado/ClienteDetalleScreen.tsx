@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, Linking, StyleSheet, View } from 'react-native';
 import { Button, Dialog, IconButton, Portal, Text } from 'react-native-paper';
 
@@ -21,6 +21,7 @@ import { EstadoVista } from '../../components/EstadoVista';
 import { IconoSuave } from '../../components/IconoSuave';
 import { Tarjeta } from '../../components/Tarjeta';
 import { useTema } from '../../hooks/useDerivados';
+import { MULTIPLICADOR_MONTO, useDisposicion, useEstiloDialogo } from '../../hooks/useDisposicion';
 import type { PantallaRaiz } from '../../navigation/tipos';
 import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
@@ -53,7 +54,51 @@ const formatoFecha = (f: Date | null) =>
  */
 export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'ClienteDetalle'>) {
   const { clienteId } = route.params;
+  const nombre = useDatos((s) => s.clientes.datos.find((c) => c.id === clienteId)?.nombre);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: nombre ?? 'Cliente',
+      headerRight: () => (
+        <IconButton
+          icon="pencil"
+          onPress={() => navigation.navigate('ClienteForm', { clienteId })}
+          accessibilityLabel="Editar cliente"
+        />
+      ),
+    });
+  }, [navigation, nombre, clienteId]);
+
+  return (
+    <DetalleCliente
+      clienteId={clienteId}
+      onMovimiento={(tipo) => navigation.navigate('MovimientoForm', { clienteId, tipo })}
+      onVolver={() => navigation.goBack()}
+    />
+  );
+}
+
+/**
+ * Cuerpo del detalle de un cliente. Se usa como pantalla apilada (teléfono, tablet vertical)
+ * y como panel derecho de Fiado/Cobranza en disposición expandida (D-30).
+ */
+export function DetalleCliente({
+  clienteId,
+  onMovimiento,
+  onVolver,
+  cabecera,
+}: {
+  clienteId: string;
+  onMovimiento: (tipo: 'cargo' | 'abono') => void;
+  /** Solo en pantalla apilada: acción del estado "cliente no encontrado". */
+  onVolver?: () => void;
+  /** Encabezado propio del panel (nombre + editar) cuando no hay barra de navegación. */
+  cabecera?: ReactNode;
+}) {
   const tema = useTema();
+  const estiloDialogo = useEstiloDialogo();
+  // A 160 %+ "Fiar" y "Registrar pago" lado a lado se cortan en 360dp: se apilan.
+  const { escalaFuente } = useDisposicion();
   const contenedor = useContenedor();
   const cliente = useDatos((s) => s.clientes.datos.find((c) => c.id === clienteId));
   const { datos: todos, cargando, error } = useDatos((s) => s.movimientos);
@@ -71,25 +116,12 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
   );
   const historial = useMemo(() => ordenarCronologico(movimientos).reverse(), [movimientos]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: cliente?.nombre ?? 'Cliente',
-      headerRight: () => (
-        <IconButton
-          icon="pencil"
-          onPress={() => navigation.navigate('ClienteForm', { clienteId })}
-          accessibilityLabel="Editar cliente"
-        />
-      ),
-    });
-  }, [navigation, cliente?.nombre, clienteId]);
-
   if (!cliente) {
     return (
       <EstadoVista
         tipo="error"
         titulo="No se encontró el cliente"
-        accion={{ etiqueta: 'Volver', onPress: () => navigation.goBack() }}
+        accion={onVolver ? { etiqueta: 'Volver', onPress: onVolver } : undefined}
       />
     );
   }
@@ -242,6 +274,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
         contentContainerStyle={estilos.lista}
         ListHeaderComponent={
           <Aparecer style={estilos.cabecera}>
+            {cabecera}
             <Tarjeta nivel={2} style={estilos.saldo}>
               <View
                 style={[
@@ -260,6 +293,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
               <Text
                 variant="displaySmall"
                 style={[NUMEROS, { color: colorSaldo }]}
+                maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
                 testID="saldo-cliente"
               >
                 {formatearSoles(saldo)}
@@ -269,13 +303,14 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
                   {cliente.telefono}
                 </Text>
               ) : null}
-              <View style={estilos.fila}>
+              <View style={[estilos.fila, estilos.envolver]}>
                 {cliente.telefono ? (
                   <Button
                     icon="phone-outline"
                     mode="outlined"
                     compact
                     style={estilos.contacto}
+                    contentStyle={estilos.tactil}
                     onPress={() => void Linking.openURL(`tel:${cliente.telefono}`)}
                   >
                     Llamar
@@ -287,6 +322,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
                     mode="outlined"
                     compact
                     style={estilos.contacto}
+                    contentStyle={estilos.tactil}
                     onPress={() => void recordar()}
                   >
                     Recordar
@@ -294,7 +330,7 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
                 ) : null}
               </View>
             </Tarjeta>
-            <View style={estilos.fila}>
+            <View style={[estilos.fila, escalaFuente >= 1.6 && estilos.columna]}>
               <Button
                 // Tonal, no relleno rojo: en M3 un botón rojo sólido se lee como "eliminar".
                 // La acción primaria de la pantalla es cobrar (Registrar pago).
@@ -302,9 +338,9 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
                 icon="plus"
                 buttonColor={tema.extra.fondoDeuda}
                 textColor={tema.extra.deuda}
-                style={estilos.flex}
+                style={escalaFuente >= 1.6 ? undefined : estilos.flex}
                 contentStyle={estilos.botonAlto}
-                onPress={() => navigation.navigate('MovimientoForm', { clienteId, tipo: 'cargo' })}
+                onPress={() => onMovimiento('cargo')}
                 testID="boton-fiar"
               >
                 Fiar
@@ -312,9 +348,9 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
               <Button
                 mode="contained"
                 icon="cash-plus"
-                style={estilos.flex}
+                style={escalaFuente >= 1.6 ? undefined : estilos.flex}
                 contentStyle={estilos.botonAlto}
-                onPress={() => navigation.navigate('MovimientoForm', { clienteId, tipo: 'abono' })}
+                onPress={() => onMovimiento('abono')}
                 testID="boton-abonar"
               >
                 Registrar pago
@@ -344,7 +380,11 @@ export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'Client
         }
       />
       <Portal>
-        <Dialog visible={liquidando !== null} onDismiss={() => setLiquidando(null)}>
+        <Dialog
+          visible={liquidando !== null}
+          onDismiss={() => setLiquidando(null)}
+          style={estiloDialogo}
+        >
           <Dialog.Title>¿Cómo pagó?</Dialog.Title>
           <Dialog.Content>
             <Text>
@@ -386,6 +426,9 @@ const estilos = StyleSheet.create({
   cabecera: { gap: espacio.sm, marginBottom: espacio.xxs },
   saldo: { padding: espacio.lg, alignItems: 'center', gap: espacio.xs },
   fila: { flexDirection: 'row', alignItems: 'center', gap: espacio.xs },
+  envolver: { flexWrap: 'wrap', justifyContent: 'center' },
+  columna: { flexDirection: 'column', alignItems: 'stretch' },
+  tactil: { minHeight: TACTIL_MIN },
   contacto: { borderRadius: radio.completo, marginTop: espacio.xs },
   botonAlto: { minHeight: 52 },
   seccion: { marginTop: espacio.xs },

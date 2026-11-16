@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { HelperText, Text } from 'react-native-paper';
 
@@ -28,6 +28,7 @@ import { IconoSuave, type NombreIcono } from '../../components/IconoSuave';
 import { SelectorFecha } from '../../components/SelectorFecha';
 import { Tarjeta } from '../../components/Tarjeta';
 import { useSaldos, useTema } from '../../hooks/useDerivados';
+import { MULTIPLICADOR_MONTO, useDisposicion } from '../../hooks/useDisposicion';
 import type { PantallaTab } from '../../navigation/tipos';
 import { useContenedor } from '../../stores/sesionStore';
 import { familia } from '../../theme/tema';
@@ -55,8 +56,18 @@ const PERIODOS: { valor: Periodo; etiqueta: string }[] = [
 export function ReportesScreen({ navigation }: PantallaTab<'Reportes'>) {
   const tema = useTema();
   const contenedor = useContenedor();
-  // El gráfico se mide contra el contenido (tope de 840dp en tablets), no contra la ventana.
-  const width = Math.min(useWindowDimensions().width, ANCHO_CONTENIDO.lista);
+  // D-30: el gráfico se mide contra su tarjeta (onLayout), no contra la ventana: con riel
+  // lateral, Split View o tope de ancho la ventana miente. Antes de medir, una estimación.
+  const disposicion = useDisposicion();
+  const [anchoGrafico, setAnchoGrafico] = useState<number | null>(null);
+  const width = anchoGrafico ?? Math.min(disposicion.ancho, ANCHO_CONTENIDO.lista) - espacio.md * 4;
+  // KPIs: 4 en fila desde la disposición media; 1 por fila en teléfono con letra grande.
+  const estiloKpi =
+    disposicion.disposicion !== 'compacta'
+      ? estilos.kpiFila
+      : disposicion.escalaFuente >= 1.5
+        ? estilos.kpiCompleto
+        : undefined;
   const saldos = useSaldos();
 
   const hoy = useMemo(() => new Date(), []);
@@ -154,26 +165,43 @@ export function ReportesScreen({ navigation }: PantallaTab<'Reportes'>) {
           ]}
         />
 
-        <View style={estilos.grid}>
-          <Kpi titulo="Efectivo que entró" valor={reporte.totalEfectivo} icono="cash" />
-          <Kpi titulo="Yape/Plin que entró" valor={reporte.totalYape} icono="cellphone" />
+        <View style={estilos.grid} testID="reporte-kpis">
+          <Kpi
+            titulo="Efectivo que entró"
+            valor={reporte.totalEfectivo}
+            icono="cash"
+            estilo={estiloKpi}
+          />
+          <Kpi
+            titulo="Yape/Plin que entró"
+            valor={reporte.totalYape}
+            icono="cellphone"
+            estilo={estiloKpi}
+          />
           {/* El rojo solo cuando hay algo que atender: S/ 0.00 en rojo alarma sin motivo. */}
           <Kpi
             titulo="Fiado del periodo"
             valor={reporte.totalFiado}
             icono="notebook-outline"
             color={reporte.totalFiado > 0 ? tema.extra.deuda : undefined}
+            estilo={estiloKpi}
           />
           <Kpi
             titulo="Por cobrar (total)"
             valor={porCobrar}
             icono="timer-sand"
             color={porCobrar > 0 ? tema.extra.deuda : undefined}
+            estilo={estiloKpi}
           />
         </View>
 
         <Tarjeta style={estilos.seccion}>
           <Text variant="titleMedium">Ingresos por día</Text>
+          <View
+            style={estilos.medidor}
+            onLayout={(e) => setAnchoGrafico(Math.round(e.nativeEvent.layout.width))}
+            testID="medidor-grafico"
+          />
           {datosGrafico.length === 0 ? (
             <Text style={{ color: tema.colors.onSurfaceVariant }}>
               Sin ingresos en este periodo.
@@ -189,7 +217,8 @@ export function ReportesScreen({ navigation }: PantallaTab<'Reportes'>) {
                     ? [{ value: 0, label: '' }, ...datosGrafico]
                     : datosGrafico
                 }
-                width={width - 112}
+                // El eje Y ocupa ~40dp a la izquierda del área de dibujo.
+                width={Math.max(160, width - 48)}
                 height={180}
                 areaChart
                 curved
@@ -218,7 +247,7 @@ export function ReportesScreen({ navigation }: PantallaTab<'Reportes'>) {
                 yAxisThickness={0}
                 xAxisThickness={0}
                 noOfSections={4}
-                spacing={Math.max(40, (width - 140) / Math.max(datosGrafico.length, 2))}
+                spacing={Math.max(40, (width - 76) / Math.max(datosGrafico.length, 2))}
                 initialSpacing={12}
                 isAnimated={false}
               />
@@ -311,6 +340,7 @@ export function ReportesScreen({ navigation }: PantallaTab<'Reportes'>) {
             <Text
               variant="displaySmall"
               style={[NUMEROS, { color: sobreHero.texto }]}
+              maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
               testID="reporte-total"
             >
               {reporte ? formatearSoles(reporte.totalIngresos) : '—'}
@@ -407,17 +437,19 @@ function Kpi({
   valor,
   icono,
   color,
+  estilo,
 }: {
   titulo: string;
   valor: number;
   icono: NombreIcono;
   color?: string;
+  estilo?: ViewStyle;
 }) {
   const tema = useTema();
   const deuda = color === tema.extra.deuda;
   return (
     <Tarjeta
-      style={estilos.kpi}
+      style={[estilos.kpi, estilo]}
       accessible
       accessibilityLabel={`${titulo}: ${formatearSoles(valor)}`}
     >
@@ -430,7 +462,14 @@ function Kpi({
       <Text variant="labelMedium" style={{ color: tema.colors.onSurfaceVariant }}>
         {titulo}
       </Text>
-      <Text variant="titleLarge" style={[NUMEROS, { color: color ?? tema.colors.onSurface }]}>
+      <Text
+        variant="titleLarge"
+        style={[NUMEROS, { color: color ?? tema.colors.onSurface }]}
+        maxFontSizeMultiplier={MULTIPLICADOR_MONTO}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {formatearSoles(valor)}
       </Text>
     </Tarjeta>
@@ -470,6 +509,9 @@ const estilos = StyleSheet.create({
   puntoLeyenda: { width: 10, height: 10, borderRadius: 3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: espacio.sm },
   kpi: { flexBasis: '47%', flexGrow: 1, padding: espacio.md, gap: espacio.xs },
+  kpiFila: { flexBasis: '22%' },
+  kpiCompleto: { flexBasis: '100%' },
+  medidor: { alignSelf: 'stretch', height: 0 },
   seccion: { padding: espacio.md, gap: espacio.sm, overflow: 'hidden' },
   top: {
     flexDirection: 'row',

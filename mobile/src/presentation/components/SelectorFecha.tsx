@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Platform } from 'react-native';
 import { Button, Dialog, Portal } from 'react-native-paper';
 
+import { useEstiloDialogo } from '../hooks/useDisposicion';
+
 interface Props {
   etiqueta: string;
   valor: Date;
@@ -17,6 +19,7 @@ const formato = (d: Date) =>
 export function SelectorFecha({ etiqueta, valor, maximo, onCambiar }: Props) {
   const [abiertoIos, setAbiertoIos] = useState(false);
   const [temporal, setTemporal] = useState(valor);
+  const estiloDialogo = useEstiloDialogo();
 
   const abrir = () => {
     if (Platform.OS === 'android') {
@@ -46,7 +49,7 @@ export function SelectorFecha({ etiqueta, valor, maximo, onCambiar }: Props) {
       </Button>
       {Platform.OS === 'ios' ? (
         <Portal>
-          <Dialog visible={abiertoIos} onDismiss={() => setAbiertoIos(false)}>
+          <Dialog visible={abiertoIos} onDismiss={() => setAbiertoIos(false)} style={estiloDialogo}>
             <Dialog.Title>{etiqueta}</Dialog.Title>
             <Dialog.Content>
               <DateTimePicker
