@@ -168,11 +168,12 @@ function pintarResumenHoja(): void {
   const r = raiz?.querySelector('#hoja-resumen-texto');
   if (!r) return;
   const cart = getCart();
+  // El total va en grande también con la hoja cerrada: se ve sin abrir el ticket.
   r.innerHTML =
     fase === 'listo'
       ? 'Venta registrada<small>Toca para abrir o cerrar el ticket</small>'
       : cart.length
-        ? `${esc(resumenUnidades(cart))} · ${esc(soles(totalCarrito(cart)))}<small>Toca para abrir o cerrar el ticket</small>`
+        ? `<span class="hoja-total">${esc(soles(totalCarrito(cart)))}</span><small>${esc(resumenUnidades(cart))} · ver ticket</small>`
         : 'Ticket vacío<small>Toca un producto para agregarlo</small>';
   const btn = raiz?.querySelector<HTMLButtonElement>('#hoja-cobrar');
   if (btn) {

@@ -39,7 +39,7 @@
   --papel-linea: rgba(28, 25, 23, 0.32);
   --foco: #0b6b4f;
   --velo: rgba(28, 25, 23, 0.36);
-  --sombra-flotante: 0 12px 32px rgba(28, 25, 23, 0.14), 0 2px 6px rgba(28, 25, 23, 0.06);
+  --sombra-flotante: 0 0.75rem 2rem rgba(28, 25, 23, 0.14), 0 2px 0.375rem rgba(28, 25, 23, 0.06);
   --marca-1: #08392b;
   --marca-2: #0a4534;
   --marca-3: #0a5640;
@@ -50,9 +50,35 @@
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
   --t-rapida: 140ms;
   --t-hoja: 180ms;
-  --riel: 72px;
-  --barra-movil: 64px;
+  --riel: 4.5rem;
+  --barra-movil: 4rem;
+  /* Alto real de la barra inferior (0 cuando se usa el riel). */
+  --barra-alto: 0px;
+  /* Alto de la cabecera móvil fija (0 con el riel): los elementos sticky se ubican debajo. */
+  --cabecera-alto: 0px;
+  /* PWA instalada (viewport-fit=cover): muesca, isla y barra de gestos. */
+  --seguro-arriba: env(safe-area-inset-top, 0px);
+  --seguro-der: env(safe-area-inset-right, 0px);
+  --seguro-abajo: env(safe-area-inset-bottom, 0px);
+  --seguro-izq: env(safe-area-inset-left, 0px);
+  --ancho-riel: calc(var(--riel) + var(--seguro-izq));
 }
+
+/*
+ * ---------- Sistema responsive ----------
+ * Las media queries no aceptan variables: estos son los cortes, y en todo el archivo se usan
+ * solo estos valores. Medidas en rem (la escala de fuente de Android y el zoom las agrandan);
+ * los cortes van en px de viewport.
+ *   --bp-angosto   359px  celulares de 320 px (Android barato, iPhone SE 1.ª gen.)
+ *   --bp-barra     767px  hasta aquí, barra inferior (si el alto es > 500 px) …
+ *   --bp-echado    alto ≤ 500px y ancho ≥ 560px: celular echado / zoom 200 %; riel compacto
+ *   --bp-tablet   1023px  tablets: una columna en Caja y Reportes
+ *   --bp-ancho    1920px  monitores grandes: el contenido se topa, el catálogo crece en columnas
+ * A nivel de componente se usan container queries (catálogo y ticket de Vender, KPI de
+ * Reportes): dependen del ancho que les queda, no del viewport.
+ * Puntero: @media (hover: hover) para efectos de hover; (pointer: coarse) agranda objetivos
+ * táctiles a 48 px y oculta ayudas de teclado (kbd).
+ */
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
@@ -89,7 +115,7 @@
     --papel-linea: rgba(28, 25, 23, 0.36);
     --foco: #6cc6a5;
     --velo: rgba(0, 0, 0, 0.55);
-    --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --sombra-flotante: 0 1rem 2.5rem rgba(0, 0, 0, 0.5);
     --marca-1: #03201a;
     --marca-2: #073b2e;
     --marca-3: #0b5040;
@@ -130,7 +156,7 @@
   --papel-linea: rgba(28, 25, 23, 0.36);
   --foco: #6cc6a5;
   --velo: rgba(0, 0, 0, 0.55);
-  --sombra-flotante: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --sombra-flotante: 0 1rem 2.5rem rgba(0, 0, 0, 0.5);
   --marca-1: #03201a;
   --marca-2: #073b2e;
   --marca-3: #0b5040;
@@ -188,7 +214,7 @@ body {
   background: var(--fondo);
   color: var(--texto);
   font-family: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 1.5;
   /* Todos los montos y contadores con dígitos del mismo ancho: un total que cambia no "baila". */
   font-variant-numeric: tabular-nums;
@@ -202,6 +228,13 @@ body {
   flex: none;
   display: block;
 }
+/* Los íconos acompañan a la letra (escala de fuente de Android, zoom). */
+.ico[width='14'] { width: 0.875rem; height: 0.875rem; }
+.ico[width='16'] { width: 1rem; height: 1rem; }
+.ico[width='18'] { width: 1.125rem; height: 1.125rem; }
+.ico[width='20'] { width: 1.25rem; height: 1.25rem; }
+.ico[width='22'] { width: 1.375rem; height: 1.375rem; }
+.ico[width='28'] { width: 1.75rem; height: 1.75rem; }
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--foco);
   outline-offset: 2px;
@@ -222,14 +255,14 @@ body {
   margin: 0;
 }
 .titulo-pagina {
-  font-size: 28px;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 1.75rem);
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
 }
 .titulo-seccion {
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
@@ -241,9 +274,9 @@ body {
 }
 kbd {
   font: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 1px 0.375rem;
   border-radius: 4px;
   border: 1px solid var(--borde-fuerte);
   border-bottom-width: 2px;
@@ -256,13 +289,13 @@ kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 20px;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 1.25rem;
   border-radius: 10px;
   border: 1px solid transparent;
   font: inherit;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
@@ -307,11 +340,11 @@ kbd {
   background: var(--acento);
   color: var(--sobre-acento);
   font-weight: 800;
-  font-size: 18px;
-  min-height: 56px;
+  font-size: 1.125rem;
+  min-height: 3.5rem;
   width: 100%;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 1.25rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 .btn-cobrar:hover:not(:disabled) {
@@ -333,7 +366,7 @@ kbd {
 .btn-fantasma {
   background: transparent;
   color: var(--primario-texto);
-  padding: 0 12px;
+  padding: 0 0.75rem;
 }
 .btn-fantasma:hover:not(:disabled) {
   background: var(--primario-suave);
@@ -346,9 +379,9 @@ kbd {
   filter: brightness(1.08);
 }
 .btn-sm {
-  min-height: 40px;
-  padding: 0 14px;
-  font-size: 14px;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
   border-radius: 8px;
 }
 .btn-ancho {
@@ -357,8 +390,8 @@ kbd {
 .btn-icono {
   display: inline-grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 2.75rem;
+  height: 2.75rem;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -381,16 +414,16 @@ kbd {
 }
 @media (pointer: coarse) {
   .btn-sm {
-    min-height: 48px;
+    min-height: 3rem;
   }
   .btn-icono {
-    width: 48px;
-    height: 48px;
+    width: 3rem;
+    height: 3rem;
   }
 }
 .spinner {
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
@@ -416,25 +449,25 @@ kbd {
 /* ---------- Campos ---------- */
 .campo {
   display: grid;
-  gap: 6px;
+  gap: 0.375rem;
 }
 .campo > span,
 .etiqueta {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
 }
 .entrada {
   width: 100%;
   box-sizing: border-box;
-  min-height: 48px;
-  padding: 0 14px;
+  min-height: 3rem;
+  padding: 0 0.875rem;
   border-radius: 10px;
   border: 1px solid var(--borde-fuerte);
   background: var(--sup);
   color: var(--texto);
   font: inherit;
-  font-size: 16px;
+  font-size: 1rem;
   transition: border-color var(--t-rapida) var(--ease);
 }
 .entrada::placeholder {
@@ -454,56 +487,58 @@ kbd {
 }
 .entrada-monto {
   font-weight: 700;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .busqueda {
   position: relative;
 }
 .busqueda > .ico {
   position: absolute;
-  left: 14px;
+  left: 0.875rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--texto-2);
   pointer-events: none;
 }
 .busqueda .entrada {
-  padding-left: 44px;
+  padding-left: 2.75rem;
 }
 .busqueda kbd {
   position: absolute;
-  right: 12px;
+  right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
 }
 .mensaje-error {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: 0.75rem 0.875rem;
   border-radius: 10px;
   background: var(--deuda-fondo);
   color: var(--deuda);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 .mensaje-ok {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: 0.75rem 0.875rem;
   border-radius: 10px;
   background: var(--primario-suave);
   color: var(--primario-texto);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
 }
 
 /* Control segmentado: exterior 12 px, padding 4 px ⇒ interior 8 px. */
 .segmentado {
   display: inline-flex;
-  gap: 4px;
-  padding: 4px;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 0.25rem;
+  padding: 0.25rem;
   border-radius: var(--r-md);
   background: var(--sup-2);
   border: 1px solid var(--borde);
@@ -513,24 +548,35 @@ kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 14px;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--texto-2);
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
-  white-space: nowrap;
+  /* En 320 px (o con letra grande) el texto parte en dos renglones antes que desbordar. */
+  min-width: 0;
+  white-space: normal;
   transition:
     background-color var(--t-rapida) var(--ease),
     color var(--t-rapida) var(--ease);
 }
-.segmentado button:hover {
-  color: var(--texto);
+@media (hover: hover) {
+  .segmentado button:hover {
+    color: var(--texto);
+  }
+}
+@media (pointer: coarse) {
+  .segmentado button {
+    min-height: 3rem;
+  }
 }
 .segmentado button:active {
   transform: scale(0.97);
@@ -545,11 +591,11 @@ kbd {
   display: flex;
 }
 .segmentado-grande button {
-  min-height: 48px;
+  min-height: 3rem;
 }
 .punto-yape {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   background: var(--yape);
 }
@@ -575,60 +621,60 @@ kbd {
   }
 }
 .esq-fila {
-  height: 64px;
-  margin-bottom: 8px;
+  height: 4rem;
+  margin-bottom: 0.5rem;
 }
 .esq-prod {
-  height: 104px;
+  height: 6.5rem;
   border-radius: var(--r-md);
 }
 .esq-linea {
-  height: 16px;
-  margin: 8px 0;
+  height: 1rem;
+  margin: 0.5rem 0;
 }
 .vacio {
   display: grid;
   justify-items: center;
   text-align: center;
-  gap: 8px;
-  padding: 40px 24px;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
   max-width: 44ch;
   margin: 0 auto;
 }
 .vacio-ico {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
   background: var(--sup-2);
   color: var(--texto-2);
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 .vacio-titulo {
   font-weight: 700;
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 0;
 }
 .vacio .btn {
-  margin-top: 8px;
+  margin-top: 0.5rem;
 }
 .aviso {
   position: fixed;
   z-index: 60;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(1.5rem + max(var(--barra-alto), var(--seguro-abajo)));
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: min(92vw, 480px);
-  padding: 12px 16px;
+  gap: 0.5rem;
+  max-width: min(92vw, 30rem);
+  padding: 0.75rem 1rem;
   border-radius: var(--r-md);
   background: var(--texto);
   color: var(--fondo);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
   box-shadow: var(--sombra-flotante);
 }
 .aviso[data-tipo='error'] {
@@ -639,19 +685,19 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
   background: var(--aviso-fondo);
   color: var(--aviso-texto);
   border-bottom: 1px solid var(--aviso-borde);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   text-align: center;
 }
 .confirmacion {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 0.75rem;
+  padding: 1rem;
   border-radius: var(--r-md);
   background: var(--deuda-fondo);
   border: 1px solid var(--borde);
@@ -663,15 +709,15 @@ kbd {
 .fila-botones {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
+  gap: 0.25rem;
+  padding: 2px 0.625rem;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   background: var(--sup-2);
   color: var(--texto-2);
@@ -698,12 +744,16 @@ kbd {
 .riel {
   position: fixed;
   inset: 0 auto 0 0;
-  width: var(--riel);
+  width: var(--ancho-riel);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 0;
+  gap: 0.25rem;
+  padding: calc(0.75rem + var(--seguro-arriba)) 0 calc(0.75rem + var(--seguro-abajo)) var(--seguro-izq);
+  /* Con poco alto (celular echado, zoom 200 %) el riel se desplaza en vez de cortar Ajustes. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
   background: var(--sup);
   border-right: 1px solid var(--borde);
   z-index: 30;
@@ -711,9 +761,9 @@ kbd {
 .riel-marca {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 12px;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: 0.75rem;
   border-radius: 12px;
   background: var(--marca-1);
   color: var(--acento);
@@ -723,17 +773,17 @@ kbd {
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 4px;
-  width: 64px;
-  min-height: 56px;
-  padding: 6px 2px;
+  gap: 0.25rem;
+  width: 4rem;
+  min-height: 3.5rem;
+  padding: 0.375rem 2px;
   box-sizing: border-box;
   border-radius: var(--r-md);
   border: 0;
   background: transparent;
   color: var(--texto-2);
   font: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.15;
   text-align: center;
@@ -760,38 +810,39 @@ kbd {
   color: var(--texto-2);
 }
 .nav-item .proximamente {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 500;
 }
 .nav-insignia {
   position: absolute;
-  top: 4px;
-  right: 10px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: 0.25rem;
+  right: 0.625rem;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
   box-sizing: border-box;
   border-radius: 9px;
   background: var(--acento);
   color: var(--sobre-acento);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
-  line-height: 18px;
+  line-height: 1.125rem;
 }
 .riel-pie {
   margin-top: auto;
   display: grid;
-  gap: 4px;
+  gap: 0.25rem;
 }
 .contenido {
-  margin-left: var(--riel);
+  margin-left: var(--ancho-riel);
+  padding-right: var(--seguro-der);
   min-height: 100vh;
   min-height: 100dvh;
   box-sizing: border-box;
 }
 .vista {
-  padding: 32px;
-  max-width: 1280px;
+  padding: 2rem;
+  max-width: 80rem;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -800,33 +851,45 @@ kbd {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 .cabecera-movil,
 .barra-movil {
   display: none;
 }
 
-@media (max-width: 767px) {
+/*
+ * Riel vs barra inferior. Barra: celulares en vertical y tablets chicas en vertical
+ * (--bp-barra). Celulares echados (alto ≤ 500 px y ancho ≥ 560 px) usan el riel compacto:
+ * una barra inferior de 64 px se comería un sexto de la pantalla. Con el teclado abierto en
+ * vertical (interactive-widget=resizes-content) el ancho no cambia, así que no hay salto.
+ */
+@media (max-width: 767px) and (min-height: 501px), (max-width: 559px) {
+  :root {
+    --barra-alto: calc(var(--barra-movil) + var(--seguro-abajo));
+    --cabecera-alto: calc(4rem + var(--seguro-arriba));
+    --ancho-riel: 0px;
+  }
   .riel {
     display: none;
   }
   .contenido {
     margin-left: 0;
-    padding-bottom: calc(var(--barra-movil) + env(safe-area-inset-bottom));
+    padding-bottom: var(--barra-alto);
   }
   .vista {
-    padding: 16px;
+    padding: 1rem;
   }
   .titulo-pagina {
-    font-size: 24px;
+    font-size: 1.5rem;
   }
   .cabecera-movil {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 8px 8px 16px;
+    gap: 0.75rem;
+    min-height: var(--cabecera-alto);
+    padding: calc(0.5rem + var(--seguro-arriba)) calc(0.5rem + var(--seguro-der)) 0.5rem calc(1rem + var(--seguro-izq));
     background: var(--sup);
     border-bottom: 1px solid var(--borde);
     position: sticky;
@@ -834,8 +897,8 @@ kbd {
     z-index: 25;
   }
   .cabecera-movil .riel-marca {
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     margin: 0;
     border-radius: 10px;
   }
@@ -843,17 +906,24 @@ kbd {
     flex: 1;
     min-width: 0;
     font-weight: 700;
+    line-height: 1.2;
+    /* Dos renglones antes que "Bodeg…" en un celular de 320 px. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: break-word;
+  }
+  .cabecera-movil {
+    container: cabecera / inline-size;
   }
   .barra-movil {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     position: fixed;
     inset: auto 0 0 0;
-    height: calc(var(--barra-movil) + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
+    height: var(--barra-alto);
+    padding: 0 var(--seguro-der) var(--seguro-abajo) var(--seguro-izq);
     background: var(--sup);
     border-top: 1px solid var(--borde);
     z-index: 36; /* sobre la hoja del ticket */
@@ -877,7 +947,59 @@ kbd {
     background: var(--primario);
   }
   .barra-movil .nav-insignia {
-    right: calc(50% - 22px);
+    right: calc(50% - 1.375rem);
+  }
+}
+
+/* Cabecera angosta (320 px o letra al 130 %): el tema queda en Ajustes, el nombre se lee. */
+@container cabecera (max-width: 22rem) {
+  .cabecera-movil [data-alternar-tema] {
+    display: none;
+  }
+}
+
+/* --bp-echado: celular en horizontal, POS de 1024×600 con zoom, o laptop con zoom 200 %. */
+@media (max-height: 500px) and (min-width: 560px) {
+  .riel {
+    gap: 0;
+    padding-top: calc(0.25rem + var(--seguro-arriba));
+    padding-bottom: calc(0.25rem + var(--seguro-abajo));
+  }
+  .riel > .riel-marca {
+    display: none;
+  }
+  .riel .nav-item {
+    min-height: 2.75rem;
+    padding: 0.125rem;
+    gap: 0.125rem;
+    font-size: 0.625rem;
+  }
+  .riel .nav-item .ico {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+  .riel .nav-item .proximamente {
+    display: none;
+  }
+  .riel-pie {
+    gap: 0;
+  }
+  .vista {
+    padding: 0.75rem 1rem;
+  }
+  .titulo-pagina {
+    font-size: 1.375rem;
+  }
+  .cabecera-vista {
+    margin-bottom: 1rem;
+  }
+}
+@media (max-width: 359px) {
+  .cabecera-movil {
+    gap: 0.25rem;
+  }
+  .vista {
+    padding: 0.75rem;
   }
 }
 
@@ -891,7 +1013,9 @@ kbd {
 .panel {
   position: fixed;
   inset: 0 0 0 auto;
-  width: min(460px, 100vw);
+  --panel-pad: 1.5rem;
+  width: min(28.75rem, 100vw);
+  padding: var(--seguro-arriba) var(--seguro-der) var(--seguro-abajo) 0;
   display: flex;
   flex-direction: column;
   background: var(--sup);
@@ -912,12 +1036,12 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 16px 16px 24px;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 0.75rem var(--panel-pad);
   border-bottom: 1px solid var(--borde);
 }
 .panel-titulo {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
@@ -928,28 +1052,31 @@ kbd {
 }
 .panel-cuerpo {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 24px;
+  overscroll-behavior: contain;
+  padding: var(--panel-pad);
   display: grid;
   align-content: start;
-  gap: 24px;
+  gap: var(--panel-pad);
 }
+/* Las acciones del panel quedan siempre a la vista, aunque el cuerpo se desplace. */
 .panel-pie {
   position: sticky;
-  bottom: -24px;
-  margin: 0 -24px -24px;
-  padding: 16px 24px;
+  bottom: calc(-1 * var(--panel-pad));
+  margin: 0 calc(-1 * var(--panel-pad)) calc(-1 * var(--panel-pad));
+  padding: 1rem var(--panel-pad);
   background: var(--sup);
   border-top: 1px solid var(--borde);
 }
 .formulario {
   display: grid;
-  gap: 16px;
+  gap: 1rem;
 }
 .dos-col {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 0.75rem;
 }
 body.con-panel {
   overflow: hidden;
@@ -957,36 +1084,36 @@ body.con-panel {
 
 /* ---------- Hoy ---------- */
 .hoy {
-  max-width: 880px;
+  max-width: 55rem;
 }
 .hoy-fecha {
   color: var(--texto-2);
   font-weight: 600;
-  margin: 0 0 24px;
+  margin: 0 0 1.5rem;
 }
 .hoy-principal {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: end;
-  gap: 24px;
-  padding-bottom: 32px;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
   border-bottom: 1px solid var(--borde);
 }
 .hoy-etiqueta {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--texto-2);
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
 }
 .hoy-monto {
-  font-size: clamp(48px, 8vw, 72px);
+  font-size: clamp(3rem, 8vw, 4.5rem);
   margin: 0;
 }
 .hoy-comparacion {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 12px 0 0;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
   font-weight: 600;
 }
 .hoy-comparacion.sube {
@@ -997,17 +1124,17 @@ body.con-panel {
 }
 .hoy-fila {
   display: grid;
-  grid-template-columns: 48px 1fr auto;
+  grid-template-columns: 3rem 1fr auto;
   align-items: center;
-  gap: 16px;
-  padding: 24px 0;
+  gap: 1rem;
+  padding: 1.5rem 0;
   border-bottom: 1px solid var(--borde);
 }
 .hoy-fila-ico {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 3rem;
+  height: 3rem;
   border-radius: 12px;
   background: var(--sup-2);
   color: var(--texto-2);
@@ -1018,67 +1145,93 @@ body.con-panel {
 }
 .hoy-fila-titulo {
   margin: 0;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--texto-2);
 }
 .hoy-fila-dato {
   margin: 0;
-  font-size: 28px;
+  font-size: 1.75rem;
 }
 .hoy-nombres {
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
   color: var(--texto-2);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 @media (max-width: 767px) {
   .hoy-principal {
     grid-template-columns: 1fr;
   }
   .hoy-fila {
-    grid-template-columns: 40px 1fr;
+    grid-template-columns: 2.5rem 1fr;
   }
   .hoy-fila > .btn {
     grid-column: 1 / -1;
   }
   .hoy-fila-ico {
-    width: 40px;
-    height: 40px;
+    width: 2.5rem;
+    height: 2.5rem;
   }
 }
 
 /* ---------- Vender ---------- */
-.vender {
+/*
+ * Tres formas, según el ancho que le queda a la vista (container query "vender"):
+ *  - < 35rem: catálogo + ticket como hoja inferior (celular vertical).
+ *  - 35–60rem: dos columnas con ticket angosto (celular echado, tablet chica, POS).
+ *  - > 60rem: catálogo + ticket fijo a la derecha; en monitores grandes el catálogo crece.
+ * En todas, el total grande y "Cobrar" quedan a la vista sin desplazar: solo la lista de
+ * ítems del ticket se desplaza por dentro.
+ */
+[data-vista='vender'] {
+  container: vender / inline-size;
+}
+.vista.vender {
+  --ancho-ticket: clamp(17.5rem, 34%, 23.75rem);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 32px;
-  max-width: 1440px;
-  padding-top: 24px;
+  grid-template-columns: minmax(0, 1fr) var(--ancho-ticket);
+  gap: clamp(1rem, 2.5vw, 2rem);
+  max-width: 90rem;
+  padding-top: 1rem;
+}
+.catalogo-col {
+  container: catalogo / inline-size;
+  min-width: 0;
 }
 .catalogo-cabecera {
   position: sticky;
-  top: 0;
+  top: var(--cabecera-alto);
   z-index: 5;
-  padding: 0 0 16px;
+  padding: 0 0 1rem;
   background: var(--fondo);
 }
 .catalogo-cabecera .entrada {
-  min-height: 56px;
-  font-size: 17px;
+  min-height: 3.5rem;
+  font-size: 1.0625rem;
   border-radius: var(--r-md);
 }
 .catalogo {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.75rem;
+}
+@container catalogo (max-width: 30rem) {
+  .catalogo {
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: 0.5rem;
+  }
+  .prod {
+    min-height: 5.75rem;
+    padding: 0.625rem 0.75rem;
+  }
 }
 .prod {
   position: relative;
   display: grid;
   grid-template-rows: 1fr auto;
-  gap: 8px;
-  min-height: 104px;
-  padding: 12px 14px;
+  gap: 0.5rem;
+  min-height: 6.5rem;
+  padding: 0.75rem 0.875rem;
   border-radius: var(--r-md);
   border: 1px solid var(--borde);
   background: var(--sup);
@@ -1090,37 +1243,40 @@ body.con-panel {
     border-color var(--t-rapida) var(--ease),
     transform 80ms var(--ease);
 }
-.prod:hover {
-  border-color: var(--borde-fuerte);
+@media (hover: hover) {
+  .prod:hover {
+    border-color: var(--borde-fuerte);
+  }
 }
 .prod:active {
   transform: scale(0.97);
 }
 .prod-nombre {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.3;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  padding-right: 28px;
+  overflow-wrap: anywhere;
+  padding-right: 1.75rem;
 }
 .prod-pie {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 2px 8px;
+  gap: 2px 0.5rem;
 }
 .prod-precio {
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
 .prod-stock {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--texto-2);
   white-space: nowrap;
@@ -1133,18 +1289,18 @@ body.con-panel {
 }
 .prod-en-ticket {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
+  top: 0.625rem;
+  right: 0.625rem;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.375rem;
   box-sizing: border-box;
   border-radius: 12px;
   background: var(--primario);
   color: var(--sobre-primario);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
-  line-height: 24px;
+  line-height: 1.5rem;
   text-align: center;
 }
 .prod.primero {
@@ -1153,8 +1309,8 @@ body.con-panel {
 }
 .prod-enter {
   position: absolute;
-  right: 10px;
-  bottom: 38px;
+  right: 0.625rem;
+  bottom: 2.375rem;
 }
 .prod.destello {
   animation: destello 120ms linear;
@@ -1171,27 +1327,96 @@ body.con-panel {
 /* Columna del ticket */
 .ticket-col {
   position: sticky;
-  top: 24px;
+  top: calc(var(--cabecera-alto) + 1rem);
   align-self: start;
-  display: grid;
-  gap: 16px;
-  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Nunca más alto que la pantalla (menos cabecera y barra móviles): el ticket cede alto. */
+  max-height: calc(100dvh - var(--cabecera-alto) - var(--barra-alto) - 2rem);
+  min-width: 0;
+  container: ticket / inline-size;
+}
+/* Ticket angosto (dos columnas en celular echado o tablet chica): cobro compacto. */
+@container ticket (max-width: 21rem) {
+  .segmentado-grande button {
+    padding: 0 0.375rem;
+    gap: 0.25rem;
+    font-size: 0.8125rem;
+  }
+  .segmentado-grande button .ico {
+    display: none;
+  }
+  .billetes button {
+    min-width: 2.5rem;
+    padding: 0 0.25rem;
+  }
+  .btn-cobrar {
+    padding: 0 0.875rem;
+    font-size: 1.0625rem;
+  }
+  .ticket-item {
+    gap: 0.375rem;
+  }
+}
+/* Ticket muy angosto (letra al 130 % en un celular): nombre y subtotal arriba, −/+ abajo. */
+@container ticket (max-width: 18rem) {
+  .ticket-item:has(.pasos) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 0.25rem;
+  }
+  .ticket-item:has(.pasos) .ticket-item-nombre {
+    grid-area: 1 / 1;
+  }
+  .ticket-item:has(.pasos) .ticket-item-sub {
+    grid-area: 1 / 2;
+  }
+  .ticket-item:has(.pasos) .pasos {
+    grid-area: 2 / 1 / 3 / -1;
+    justify-self: start;
+  }
+  .ticket-sombra:has(.ticket-items) {
+    --ticket-min: min(14rem, 32dvh);
+  }
 }
 .ticket-sombra {
   filter: drop-shadow(0 1px 1px rgba(28, 25, 23, 0.08)) drop-shadow(0 10px 18px rgba(28, 25, 23, 0.1));
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+/*
+ * Si falta alto, el ticket cede hasta mostrar al menos un ítem y el total; después el cobro
+ * se desplaza por dentro con "Cobrar" pegado abajo. Así el total y Cobrar nunca se esconden.
+ */
+.ticket-sombra:has(.ticket-items) {
+  min-height: var(--ticket-min, min(11.5rem, 32dvh));
+}
+#cobro-zona {
+  /* Cede mucho menos que el ticket: la forma de pago debe seguir a la vista. */
+  flex: 0 0.15 auto;
+  min-height: 3.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Aire para el anillo de foco, que el desplazamiento recortaría. */
+  padding: 3px;
+  margin: -3px;
+}
+#btn-cobrar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
 }
 /*
  * Papel térmico: borde inferior dentado con máscara CSS (dientes de 8 px) y un papel algo
  * más cálido que la superficie. En modo Noche el papel se atenúa, pero sigue siendo papel.
  */
 .ticket {
-  --diente: 16px;
+  --diente: 1rem;
   background: var(--papel);
   color: var(--papel-tinta);
-  padding: 20px 20px calc(20px + var(--diente) / 2);
+  padding: 1.25rem 1.25rem calc(1.25rem + var(--diente) / 2);
   border-radius: var(--r-md) var(--r-md) 0 0;
   -webkit-mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / var(--diente)
@@ -1203,19 +1428,23 @@ body.con-panel {
     linear-gradient(#000 0 0) top / 100% calc(100% - var(--diente) / 2 + 1px) no-repeat;
   display: flex;
   flex-direction: column;
+  flex: 0 1 auto;
   min-height: 0;
+}
+.ticket > :not(.ticket-items) {
+  flex: none;
 }
 .ticket-cabecera {
   text-align: center;
-  padding-bottom: 12px;
+  padding-bottom: 0.75rem;
 }
 .ticket-negocio {
   font-weight: 800;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin: 0;
 }
 .ticket-meta {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--papel-tenue);
   margin: 2px 0 0;
 }
@@ -1227,16 +1456,18 @@ body.con-panel {
 .ticket-items {
   list-style: none;
   margin: 0;
-  padding: 4px 0;
+  padding: 0.25rem 0;
+  flex: 0 1 auto;
   overflow-y: auto;
-  min-height: 72px;
+  overscroll-behavior: contain;
+  min-height: 3rem;
 }
 .ticket-item {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
   border-bottom: 1px dashed var(--papel-linea);
 }
 .ticket-item:last-child {
@@ -1251,7 +1482,7 @@ body.con-panel {
   }
 }
 .ticket-item-nombre {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.3;
   min-width: 0;
@@ -1259,13 +1490,13 @@ body.con-panel {
 }
 .ticket-item-precio {
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--papel-tenue);
 }
 .ticket-item-sub {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .pasos {
   display: inline-flex;
@@ -1276,8 +1507,8 @@ body.con-panel {
 .pasos button {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   border: 0;
   background: transparent;
   color: var(--papel-tinta);
@@ -1295,46 +1526,47 @@ body.con-panel {
   outline-offset: 0;
 }
 .pasos output {
-  min-width: 22px;
+  min-width: 1.375rem;
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 @media (pointer: coarse) {
   .pasos button {
-    width: 44px;
-    height: 44px;
+    width: 2.75rem;
+    height: 2.75rem;
   }
 }
 .ticket-total {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding-top: 12px;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
 }
 .ticket-total-etiqueta {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
 }
 .ticket-total-monto {
-  font-size: 44px;
+  font-size: clamp(2.25rem, 1.5rem + 1.6vw, 2.75rem);
+  white-space: nowrap;
 }
 .ticket-vacio {
   text-align: center;
-  padding: 24px 8px;
+  padding: 1.5rem 0.5rem;
   color: var(--papel-tenue);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .ticket-vacio p {
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
 }
 .atajos {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px 12px;
-  font-size: 12px;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.75rem;
 }
 .atajos kbd {
   background: transparent;
@@ -1345,21 +1577,21 @@ body.con-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0 12px;
+  gap: 0.25rem;
+  padding: 0.25rem 0 0.75rem;
   color: #0a5640;
 }
 .ticket-sello strong {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   color: var(--papel-tinta);
 }
 .ticket-linea {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
-  padding: 4px 0;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
 }
 .ticket-linea strong {
   font-weight: 800;
@@ -1375,33 +1607,33 @@ body.con-panel {
 }
 .cobro {
   display: grid;
-  gap: 12px;
+  gap: 0.75rem;
 }
 .vuelto {
   display: grid;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .vuelto-fila {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: center;
 }
 .billetes {
   display: flex;
-  gap: 4px;
+  gap: 0.25rem;
 }
 .billetes button {
-  min-width: 44px;
-  min-height: 48px;
-  padding: 0 8px;
+  min-width: 2.75rem;
+  min-height: 3rem;
+  padding: 0 0.5rem;
   border-radius: 8px;
   border: 1px solid var(--borde-fuerte);
   background: var(--sup);
   color: var(--texto);
   font: inherit;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 .billetes button:hover:not(:disabled) {
@@ -1418,12 +1650,12 @@ body.con-panel {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  min-height: 32px;
+  min-height: 2rem;
   font-weight: 600;
   color: var(--texto-2);
 }
 .vuelto-resultado strong {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--primario-texto);
@@ -1433,25 +1665,26 @@ body.con-panel {
 }
 .selector-cliente {
   display: grid;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .opciones {
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: 0.25rem;
   border-radius: var(--r-md);
   border: 1px solid var(--borde);
   background: var(--sup);
-  max-height: 220px;
+  max-height: min(13.75rem, 30dvh);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .opciones li[role='option'] {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: center;
-  min-height: 44px;
-  padding: 0 12px;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
   border-radius: var(--r-sm);
   cursor: pointer;
 }
@@ -1460,14 +1693,14 @@ body.con-panel {
   background: var(--sup-2);
 }
 .opciones .texto-sec {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .cliente-elegido {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 8px 8px 14px;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.875rem;
   border-radius: var(--r-md);
   background: var(--primario-suave);
   color: var(--primario-texto);
@@ -1476,7 +1709,7 @@ body.con-panel {
 .cobro-acciones {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 0.5rem;
 }
 .deshacer {
   position: relative;
@@ -1504,43 +1737,107 @@ body.con-panel {
   display: none;
 }
 
-@media (max-width: 1100px) {
-  .vender {
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 24px;
+@container vender (max-width: 60rem) {
+  .vista.vender {
+    --ancho-ticket: clamp(16.5rem, 42%, 21.25rem);
   }
 }
-@media (max-width: 767px) {
-  .vender {
-    display: block;
-    padding-top: 16px;
-    padding-bottom: 88px;
+@media (min-width: 1920px) {
+  /* --bp-ancho: el catálogo gana columnas; el ticket no se estira más allá de lo legible. */
+  .vista.vender {
+    max-width: 120rem;
+    --ancho-ticket: 26rem;
   }
-  .catalogo {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
+}
+
+/* Ticket compacto cuando falta alto (celular echado, POS 1024×600, laptop 1280×720 con zoom). */
+@media (max-height: 640px) {
+  .ticket-col {
+    --ticket-min: min(8.5rem, 32dvh);
+    gap: 0.5rem;
   }
-  .prod-enter,
-  .busqueda kbd {
+  .ticket {
+    padding: 0.75rem 1rem calc(0.75rem + var(--diente) / 2);
+  }
+  .ticket-cabecera,
+  .ticket-cabecera + .ticket-corte {
     display: none;
   }
-  /* El ticket es una hoja inferior. */
+  .ticket-total {
+    padding-top: 0.5rem;
+  }
+  .ticket-total-monto {
+    font-size: 2rem;
+  }
+  .ticket-vacio {
+    padding: 0.75rem 0.5rem;
+  }
+  .cobro {
+    gap: 0.5rem;
+  }
+  .vuelto {
+    gap: 0.25rem;
+  }
+  .vuelto-resultado {
+    min-height: 0;
+  }
+  .vuelto-resultado strong {
+    font-size: 1.375rem;
+  }
+  .segmentado-grande button {
+    min-height: 2.75rem;
+  }
+  .btn-cobrar {
+    min-height: 3rem;
+  }
+}
+@media (max-height: 640px) and (pointer: fine) {
+  .billetes button,
+  .vuelto .entrada {
+    min-height: 2.75rem;
+  }
+}
+@media (max-height: 420px) {
+  .vuelto > .etiqueta,
+  .atajos {
+    display: none;
+  }
+}
+
+/* Ayudas de teclado: solo con puntero fino (en táctil no hay teclado físico a la vista). */
+@media (pointer: coarse) {
+  .prod-enter,
+  .busqueda kbd,
+  .btn-cobrar kbd,
+  .atajos {
+    display: none;
+  }
+}
+
+/* --- Celular vertical: el ticket es una hoja inferior --- */
+@container vender (max-width: 34.99rem) {
+  .vista.vender {
+    --asomo: 4.5rem;
+    display: block;
+    padding-top: 0.75rem;
+    padding-bottom: calc(var(--asomo) + 1rem);
+  }
   .ticket-col {
     position: fixed;
-    left: 0;
+    left: var(--ancho-riel);
     right: 0;
-    bottom: calc(var(--barra-movil) + env(safe-area-inset-bottom));
+    bottom: var(--barra-alto);
     top: auto;
-    max-height: calc(100dvh - 120px);
+    max-height: calc(100dvh - var(--barra-alto) - 3.5rem);
     z-index: 35;
-    padding: 0 12px 12px;
-    gap: 12px;
+    padding: 0 calc(0.75rem + var(--seguro-der)) calc(0.75rem + max(0px, var(--seguro-abajo) - var(--barra-alto))) 0.75rem;
+    gap: 0.75rem;
     background: var(--fondo);
     border-top: 1px solid var(--borde);
     border-radius: var(--r-lg) var(--r-lg) 0 0;
     box-shadow: 0 -8px 24px rgba(28, 25, 23, 0.12);
-    overflow-y: auto;
-    transform: translateY(calc(100% - 72px));
+    overflow: hidden;
+    transform: translateY(calc(100% - var(--asomo)));
     transition: transform var(--t-hoja) var(--ease);
   }
   .vender.hoja-abierta .ticket-col {
@@ -1552,16 +1849,14 @@ body.con-panel {
     display: none;
   }
   .hoja-resumen {
-    position: sticky;
-    top: 0;
-    z-index: 2;
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    min-height: 72px;
-    margin: 0 -12px;
-    padding: 8px 12px;
+    gap: 0.75rem;
+    min-height: var(--asomo);
+    margin: 0 -0.75rem;
+    padding: 0.5rem 0.75rem;
     background: var(--fondo);
     border: 0;
     font: inherit;
@@ -1571,18 +1866,29 @@ body.con-panel {
     border-radius: var(--r-lg) var(--r-lg) 0 0;
   }
   .hoja-resumen-texto {
+    min-width: 0;
     font-weight: 700;
+    line-height: 1.25;
+  }
+  .hoja-total {
+    display: block;
+    font-size: clamp(1.5rem, 7vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
   }
   .hoja-resumen-texto small {
     display: block;
     font-weight: 500;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--texto-2);
+    overflow-wrap: anywhere;
   }
   .hoja-resumen .btn-cobrar {
+    flex: none;
     width: auto;
-    min-height: 48px;
-    font-size: 16px;
+    min-height: 3rem;
+    font-size: 1rem;
   }
   .hoja-velo {
     position: fixed;
@@ -1594,7 +1900,7 @@ body.con-panel {
     display: block;
   }
   .ticket-total-monto {
-    font-size: 40px;
+    font-size: clamp(2rem, 10vw, 2.5rem);
   }
 }
 
@@ -1602,23 +1908,23 @@ body.con-panel {
 .franja-totales {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 48px;
+  gap: 1rem 3rem;
   align-items: flex-end;
-  padding-bottom: 24px;
-  margin-bottom: 8px;
+  padding-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   border-bottom: 1px solid var(--borde);
 }
 .franja-totales .etiqueta {
   display: block;
-  margin-bottom: 4px;
-  font-size: 14px;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
 }
 .total-cobrar {
-  font-size: clamp(36px, 5vw, 48px);
+  font-size: clamp(2.25rem, 5vw, 3rem);
   margin: 0;
 }
 .total-recuperado {
-  font-size: 24px;
+  font-size: 1.5rem;
   margin: 0;
   color: var(--primario-texto);
 }
@@ -1634,16 +1940,16 @@ body.con-panel {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 60px;
+  left: 3.75rem;
   width: 1px;
   background: var(--margen-cuaderno);
 }
 .renglon {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 16px 32px;
-  padding: 12px 0;
+  gap: 1rem 2rem;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--renglon);
 }
 .renglon-abrir {
@@ -1653,21 +1959,21 @@ body.con-panel {
 .monograma {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   background: var(--sup-2);
   color: var(--texto-2);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .renglon-boton {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 32px;
+  gap: 2rem;
   grid-column: 1 / 4;
-  min-height: 48px;
+  min-height: 3rem;
   padding: 0;
   border: 0;
   background: transparent;
@@ -1683,32 +1989,32 @@ body.con-panel {
 }
 .renglon-nombre {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 1rem;
   margin: 0;
 }
 .renglon-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: center;
-  margin-top: 4px;
-  font-size: 13px;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
   color: var(--texto-2);
 }
 .renglon-saldo {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   text-align: right;
 }
 .sin-celular {
-  min-width: 114px;
+  min-width: 7.125rem;
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--texto-2);
 }
 .seccion-al-dia {
-  margin-top: 32px;
+  margin-top: 2rem;
 }
 .seccion-al-dia[open] summary .ico {
   transform: rotate(90deg);
@@ -1716,28 +2022,28 @@ body.con-panel {
 .seccion-al-dia summary {
   cursor: pointer;
   font-weight: 700;
-  min-height: 48px;
+  min-height: 3rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
 }
 @media (max-width: 767px) {
   .cuaderno::before {
-    left: 52px;
+    left: 3.25rem;
   }
   .renglon {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: 0.5rem;
   }
   .renglon-boton {
     grid-column: 1 / -1;
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-    gap: 16px;
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+    gap: 1rem;
   }
   .renglon > .btn {
     grid-column: 1 / -1;
     justify-self: start;
-    margin-left: 56px;
+    margin-left: 3.5rem;
   }
 }
 
@@ -1746,10 +2052,10 @@ body.con-panel {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 16px;
+  gap: 1rem;
 }
 .saldo-cliente .monto-grande {
-  font-size: 40px;
+  font-size: 2.5rem;
   margin: 0;
 }
 .saldo-cliente .debe {
@@ -1760,8 +2066,8 @@ body.con-panel {
 }
 .bloque {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 0.75rem;
+  padding: 1rem;
   border-radius: var(--r-md);
   border: 1px solid var(--borde);
   background: var(--sup);
@@ -1770,7 +2076,7 @@ body.con-panel {
   border-color: var(--primario);
 }
 .fiar[open] {
-  padding: 16px;
+  padding: 1rem;
   border-radius: var(--r-md);
   border: 1px solid var(--borde);
   background: var(--sup);
@@ -1778,7 +2084,7 @@ body.con-panel {
 .historial {
   list-style: none;
   margin: 0;
-  padding: 0 0 0 16px;
+  padding: 0 0 0 1rem;
   position: relative;
 }
 .historial::before {
@@ -1786,20 +2092,20 @@ body.con-panel {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 4px;
+  left: 0.25rem;
   width: 1px;
   background: var(--margen-cuaderno);
 }
 .mov {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  gap: 4px 12px;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  gap: 0.25rem 0.75rem;
   align-items: baseline;
-  padding: 12px 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--renglon);
 }
 .mov-fecha {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
 }
@@ -1809,7 +2115,7 @@ body.con-panel {
 }
 .mov-estado {
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--texto-2);
 }
@@ -1828,14 +2134,14 @@ body.con-panel {
 .mov-acciones {
   grid-column: 2 / -1;
   display: flex;
-  gap: 4px;
+  gap: 0.25rem;
   justify-content: flex-end;
 }
 .mov-acciones .confirmacion {
   flex: 1;
 }
 .recordatorio-preview {
-  padding: 16px;
+  padding: 1rem;
   border-radius: 4px 16px 16px 16px;
   background: var(--sup-2);
   border: 1px solid var(--borde);
@@ -1847,16 +2153,16 @@ body.con-panel {
 .barra-herramientas {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 0.75rem;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
 }
 .barra-herramientas .busqueda {
-  flex: 1 1 260px;
+  flex: 1 1 16.25rem;
 }
 .se-acaban {
-  margin-bottom: 32px;
-  padding: 16px 20px;
+  margin-bottom: 2rem;
+  padding: 1rem 1.25rem;
   border-radius: var(--r-lg);
   background: var(--aviso-fondo);
   border: 1px solid var(--aviso-borde);
@@ -1864,9 +2170,9 @@ body.con-panel {
 .se-acaban-titulo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   color: var(--aviso-texto);
-  margin: 0 0 8px;
+  margin: 0 0 0.5rem;
 }
 .lista-productos {
   list-style: none;
@@ -1875,11 +2181,11 @@ body.con-panel {
 }
 .fila-prod {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px auto 48px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 7.5rem auto 3rem;
+  gap: 1rem;
   align-items: center;
-  min-height: 64px;
-  padding: 8px 0;
+  min-height: 4rem;
+  padding: 0.5rem 0;
   border-bottom: 1px solid var(--renglon);
 }
 .se-acaban .fila-prod {
@@ -1900,38 +2206,38 @@ body.con-panel {
 .stock-ctrl {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
+  gap: 0.25rem;
+  padding: 0.25rem;
   border-radius: var(--r-md);
   border: 1px solid var(--borde);
   background: var(--sup);
 }
 .stock-ctrl .btn-icono {
-  width: 40px;
-  height: 40px;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: var(--r-sm);
 }
 .stock-ctrl output {
-  min-width: 40px;
+  min-width: 2.5rem;
   text-align: center;
   font-weight: 800;
 }
 .stock-sin-control {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--texto-2);
-  min-width: 140px;
+  min-width: 8.75rem;
   text-align: center;
 }
 @media (pointer: coarse) {
   .stock-ctrl .btn-icono {
-    width: 48px;
-    height: 48px;
+    width: 3rem;
+    height: 3rem;
   }
 }
 @media (max-width: 767px) {
   .fila-prod {
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 12px;
+    gap: 0.5rem 0.75rem;
   }
   .fila-prod-precio {
     text-align: right;
@@ -1946,25 +2252,25 @@ body.con-panel {
 /* ---------- Reportes ---------- */
 .barra-periodo {
   position: sticky;
-  top: 0;
+  top: var(--cabecera-alto);
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 0.75rem;
   align-items: center;
-  padding: 12px 0;
-  margin-bottom: 16px;
+  padding: 0.75rem 0;
+  margin-bottom: 1rem;
   background: var(--fondo);
 }
 .rango-fechas {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.5rem;
   align-items: center;
 }
 .rango-fechas .entrada {
   width: auto;
-  min-width: 160px;
+  min-width: 10rem;
 }
 .franja-kpi {
   display: grid;
@@ -1972,10 +2278,10 @@ body.con-panel {
   border-radius: var(--r-lg);
   border: 1px solid var(--borde);
   background: var(--sup);
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
 }
 .kpi {
-  padding: 20px 24px;
+  padding: 1.25rem 1.5rem;
   border-left: 1px solid var(--borde);
   min-width: 0;
 }
@@ -1985,60 +2291,61 @@ body.con-panel {
 .kpi-etiqueta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 0.5rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--texto-2);
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
 }
 .kpi-valor {
-  font-size: 24px;
+  font-size: 1.5rem;
   margin: 0;
 }
 .kpi:first-child .kpi-valor {
-  font-size: 36px;
+  font-size: 2.25rem;
 }
 .kpi-nota {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--texto-2);
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
 }
 .punto {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   flex: none;
 }
 .analisis {
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
-  gap: 24px;
+  gap: 1.5rem;
 }
 .superficie {
   border-radius: var(--r-lg);
   border: 1px solid var(--borde);
   background: var(--sup);
-  padding: 24px;
+  padding: 1.5rem;
   min-width: 0;
 }
 .superficie .titulo-seccion {
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
 }
 .grafico {
   position: relative;
-  height: 280px;
+  /* Alto acotado: legible en un celular echado y sin barras gigantes en 1440 px de alto. */
+  height: clamp(12rem, 40vh, 20rem);
 }
 .top-lista {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 16px;
+  gap: 1rem;
 }
 .top-fila {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 12px;
+  gap: 0.25rem 0.75rem;
 }
 .top-nombre {
   font-weight: 600;
@@ -2051,7 +2358,7 @@ body.con-panel {
 }
 .top-barra {
   grid-column: 1 / -1;
-  height: 8px;
+  height: 0.5rem;
   border-radius: 4px;
   background: var(--sup-2);
   overflow: hidden;
@@ -2062,17 +2369,21 @@ body.con-panel {
   border-radius: 4px;
   background: var(--primario);
 }
-@media (max-width: 1023px) {
+/* Franja de KPI y gráficos según el ancho que les queda (con o sin riel, letra grande). */
+[data-vista='reportes'] {
+  container: reportes / inline-size;
+}
+@container reportes (max-width: 56rem) {
   .analisis {
     grid-template-columns: 1fr;
   }
 }
-@media (max-width: 767px) {
+@container reportes (max-width: 44rem) {
   .franja-kpi {
     grid-template-columns: 1fr 1fr;
   }
   .kpi {
-    padding: 16px;
+    padding: 1rem;
   }
   .kpi:first-child {
     grid-column: 1 / -1;
@@ -2089,7 +2400,7 @@ body.con-panel {
     border-bottom: 1px solid var(--borde);
   }
   .superficie {
-    padding: 16px;
+    padding: 1rem;
   }
   .barra-periodo .segmentado {
     width: 100%;
@@ -2099,19 +2410,19 @@ body.con-panel {
 
 /* ---------- Caja (D-28) ---------- */
 .caja {
-  max-width: 1120px;
+  max-width: 70rem;
 }
 .caja-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 48px;
+  gap: 3rem;
   align-items: start;
-  padding-bottom: 32px;
+  padding-bottom: 2rem;
   border-bottom: 1px solid var(--borde);
 }
 .caja-principal {
   display: grid;
-  gap: 24px;
+  gap: 1.5rem;
   align-content: start;
 }
 .chip-caja {
@@ -2120,30 +2431,30 @@ body.con-panel {
   color: var(--primario-texto);
 }
 .caja-etiqueta {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
   color: var(--texto-2);
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
 }
 .caja-esperado {
-  font-size: clamp(48px, 7vw, 64px);
+  font-size: clamp(3rem, 7vw, 4rem);
   margin: 0;
 }
 .caja-etiqueta-pie {
-  margin: 8px 0 0;
+  margin: 0.5rem 0 0;
   font-weight: 600;
   color: var(--texto-2);
 }
 .desglose {
   margin: 0;
   display: grid;
-  max-width: 440px;
+  max-width: 27.5rem;
 }
 .desglose-fila {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 1rem;
+  padding: 0.5rem 0;
   border-bottom: 1px dashed var(--renglon);
 }
 .desglose-fila dt {
@@ -2157,8 +2468,8 @@ body.con-panel {
 .desglose-total {
   border-bottom: 0;
   border-top: 1px solid var(--borde-fuerte);
-  margin-top: 4px;
-  padding-top: 12px;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
 }
 .desglose-total dt,
 .desglose-total dd {
@@ -2174,7 +2485,7 @@ body.con-panel {
   line-height: 1.2;
 }
 .caja-ayuda {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 /* Monto con "S/" delante, dentro del mismo campo. */
 .entrada-soles {
@@ -2183,20 +2494,20 @@ body.con-panel {
 }
 .entrada-soles > span {
   position: absolute;
-  left: 14px;
+  left: 0.875rem;
   top: 50%;
   transform: translateY(-50%);
   font-weight: 700;
-  font-size: 18px;
+  font-size: 1.125rem;
   color: var(--texto-2);
   pointer-events: none;
 }
 .entrada-soles .entrada {
-  padding-left: 44px;
+  padding-left: 2.75rem;
 }
 .caja-lateral {
   display: grid;
-  gap: 8px;
+  gap: 0.5rem;
   align-content: start;
 }
 .caja-movs {
@@ -2206,17 +2517,17 @@ body.con-panel {
 }
 .caja-mov {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--renglon);
 }
 .caja-mov-ico {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   background: var(--sup-2);
   color: var(--texto-2);
@@ -2234,7 +2545,7 @@ body.con-panel {
   overflow-wrap: anywhere;
 }
 .caja-mov-meta {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--texto-2);
 }
 .caja-mov-monto {
@@ -2246,7 +2557,7 @@ body.con-panel {
   color: var(--primario-texto);
 }
 .caja-movs-vacio {
-  padding: 12px 0;
+  padding: 0.75rem 0;
 }
 
 /* Sin caja abierta: estado vacío con el formulario de apertura. */
@@ -2254,13 +2565,13 @@ body.con-panel {
   display: grid;
   justify-items: center;
   text-align: center;
-  gap: 8px;
-  max-width: 480px;
+  gap: 0.5rem;
+  max-width: 30rem;
   margin: 0 auto;
-  padding: 24px 0 40px;
+  padding: 1.5rem 0 2.5rem;
 }
 .caja-apertura-titulo {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -2269,7 +2580,7 @@ body.con-panel {
 }
 .caja-apertura-form {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 1rem;
   text-align: left;
 }
 .caja-atajos {
@@ -2281,72 +2592,72 @@ body.con-panel {
 
 /* Panel de cierre (en la página, nunca un confirm()). */
 .caja-cierre {
-  gap: 16px;
-  padding: 24px;
+  gap: 1rem;
+  padding: 1.5rem;
   border-color: var(--primario);
 }
 .ayuda-conteo summary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 48px;
+  gap: 0.5rem;
+  min-height: 3rem;
   font-weight: 600;
   color: var(--primario-texto);
   cursor: pointer;
 }
 .ayuda-conteo[open] {
   display: grid;
-  gap: 12px;
+  gap: 0.75rem;
 }
 .conteo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 8px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.5rem 0.75rem;
 }
 .conteo-fila {
   display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-columns: 3.75rem minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .conteo-fila .entrada {
-  min-height: 44px;
+  min-height: 2.75rem;
   text-align: right;
 }
 .arqueo {
   display: grid;
-  gap: 4px;
-  padding: 16px;
+  gap: 0.25rem;
+  padding: 1rem;
   border-radius: var(--r-md);
   background: var(--sup-2);
 }
 .arqueo-fila {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 1rem;
   color: var(--texto-2);
 }
 .arqueo-fila strong {
   color: var(--texto);
 }
 .arqueo-resultado {
-  margin-top: 8px;
-  padding-top: 12px;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--borde-fuerte);
 }
 .arqueo-titulo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   margin: 0;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 .arqueo-detalle {
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
   color: var(--texto-2);
 }
 .arqueo-cuadra {
@@ -2366,8 +2677,8 @@ body.con-panel {
 /* Historial de cierres */
 .caja-historial {
   display: grid;
-  gap: 8px;
-  padding-top: 32px;
+  gap: 0.5rem;
+  padding-top: 2rem;
 }
 .tabla-cierres {
   width: 100%;
@@ -2375,7 +2686,7 @@ body.con-panel {
 }
 .tabla-cierres th,
 .tabla-cierres td {
-  padding: 12px 8px;
+  padding: 0.75rem 0.5rem;
   border-bottom: 1px solid var(--renglon);
   text-align: right;
   white-space: nowrap;
@@ -2388,7 +2699,7 @@ body.con-panel {
   padding-right: 0;
 }
 .tabla-cierres thead th {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--texto-2);
 }
@@ -2418,9 +2729,9 @@ body.con-panel {
 .hoy-caja {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 12px 0;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--borde);
   color: var(--texto-2);
   font-weight: 600;
@@ -2438,12 +2749,12 @@ body.con-panel {
 @media (max-width: 1023px) {
   .caja-layout {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 2rem;
   }
 }
 @media (max-width: 767px) {
   .caja-cierre {
-    padding: 16px;
+    padding: 1rem;
   }
   .caja-acciones .btn {
     flex: 1 1 100%;
@@ -2457,8 +2768,8 @@ body.con-panel {
   .tabla-cierres tr {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px 12px;
-    padding: 12px 0;
+    gap: 0.25rem 0.75rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--renglon);
   }
   .tabla-cierres th,
@@ -2474,7 +2785,7 @@ body.con-panel {
   .tabla-cierres td::before {
     content: attr(data-etiqueta);
     display: block;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--texto-2);
   }
@@ -2482,12 +2793,12 @@ body.con-panel {
 
 /* ---------- Ajustes ---------- */
 .ajustes {
-  max-width: 720px;
+  max-width: 45rem;
 }
 .ajuste {
   display: grid;
-  gap: 12px;
-  padding: 24px 0;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
   border-bottom: 1px solid var(--borde);
 }
 
@@ -2503,8 +2814,8 @@ body.con-panel {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 40px;
-  padding: 48px 56px;
+  gap: 2.5rem;
+  padding: 3rem 3.5rem;
   background: linear-gradient(135deg, var(--marca-1), var(--marca-2) 55%, var(--marca-3));
   color: #ffffff;
   overflow: hidden;
@@ -2512,9 +2823,9 @@ body.con-panel {
 .login-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 1.125rem;
   letter-spacing: -0.01em;
 }
 .login-logo .riel-marca {
@@ -2525,11 +2836,11 @@ body.con-panel {
 .login-logo small {
   display: block;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.78);
 }
 .login-promesa {
-  font-size: clamp(32px, 3.6vw, 48px);
+  font-size: clamp(2rem, 3.6vw, 3rem);
   line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -2538,13 +2849,13 @@ body.con-panel {
   text-wrap: balance;
 }
 .login-sub {
-  margin: 16px 0 0;
-  font-size: 17px;
+  margin: 1rem 0 0;
+  font-size: 1.0625rem;
   color: rgba(255, 255, 255, 0.85);
   max-width: 40ch;
 }
 .login-ticket {
-  width: 300px;
+  width: 18.75rem;
   align-self: flex-start;
   transform: rotate(-1.5deg);
   filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.32));
@@ -2553,26 +2864,26 @@ body.con-panel {
   --papel: #fffdf8;
 }
 .login-ticket .ticket-total-monto {
-  font-size: 36px;
+  font-size: 2.25rem;
 }
 .login-ticket-nota {
-  margin: 12px 0 0 4px;
-  font-size: 13px;
+  margin: 0.75rem 0 0 0.25rem;
+  font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.78);
 }
 .login-form-lado {
   display: grid;
   place-items: center;
-  padding: 48px 32px;
+  padding: 3rem 2rem;
 }
 .login-form {
   width: 100%;
-  max-width: 380px;
+  max-width: 23.75rem;
   display: grid;
-  gap: 24px;
+  gap: 1.5rem;
 }
 .login-form h2 {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
@@ -2580,9 +2891,9 @@ body.con-panel {
 .separador-o {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   color: var(--texto-2);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 .separador-o::before,
@@ -2593,14 +2904,14 @@ body.con-panel {
   background: var(--borde-fuerte);
 }
 .btn-google svg {
-  width: 20px;
-  height: 20px;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 .campo-clave {
   position: relative;
 }
 .campo-clave .entrada {
-  padding-right: 56px;
+  padding-right: 3.5rem;
 }
 .campo-clave .btn-icono {
   position: absolute;
@@ -2612,21 +2923,45 @@ body.con-panel {
     grid-template-columns: 1fr;
   }
   .login-marca {
-    padding: 24px 16px 32px;
-    gap: 24px;
+    padding: 1.5rem 1rem 2rem;
+    gap: 1.5rem;
   }
   .login-ticket {
     display: none;
   }
   .login-promesa {
-    font-size: 30px;
+    font-size: 1.875rem;
   }
   .login-sub {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
   .login-form-lado {
-    padding: 32px 16px 48px;
+    padding: 2rem 1rem 3rem;
     place-items: start center;
+  }
+}
+
+/* Poco alto (celular echado, laptop con zoom): la promesa y el formulario, sin el ticket. */
+@media (max-height: 640px) {
+  .login-ticket {
+    display: none;
+  }
+  .login-marca {
+    justify-content: flex-start;
+  }
+}
+/* PWA instalada: nada bajo la muesca ni la barra de gestos. */
+.login-marca {
+  padding-top: max(var(--login-pad-arriba, 3rem), calc(1rem + var(--seguro-arriba)));
+  padding-left: max(var(--login-pad-lado, 3.5rem), calc(1rem + var(--seguro-izq)));
+}
+.login-form-lado {
+  padding-bottom: max(3rem, calc(1rem + var(--seguro-abajo)));
+}
+@media (max-width: 899px) {
+  .login {
+    --login-pad-arriba: 1.5rem;
+    --login-pad-lado: 1rem;
   }
 }
 
@@ -2635,6 +2970,7 @@ body.con-panel {
   display: grid;
   place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--texto-2);
 }
 
