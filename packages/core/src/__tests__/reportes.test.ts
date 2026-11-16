@@ -6,8 +6,10 @@ import {
   enRangoEfectivo,
   fechaEfectiva,
   generarReporte,
-  MARGEN_SINCRONIZACION_MS,
-  rangoConsulta,
+  ANTIGUEDAD_MAXIMA_MS,
+  CAMPOS_CONSULTA_RANGO,
+  DESFASE_RELOJ_MS,
+  unirPorId,
   rangoPredefinido,
   resumenVentas,
 } from '../rules/reportes';
@@ -208,20 +210,23 @@ describe('fecha efectiva de ventas sin conexión (D-26)', () => {
     expect(fechaEfectiva({ fecha: null })).toBeNull();
   });
 
-  it('ignora creadaEn absurdo: posterior al servidor o más viejo que el margen', () => {
-    const adelantado = new Date(sync.getTime() + 60_000);
+  it('ignora creadaEn absurdo: reloj adelantado más allá del desfase o más viejo que 60 días', () => {
+    const adelantado = new Date(sync.getTime() + DESFASE_RELOJ_MS + 1);
     expect(fechaEfectiva({ fecha: sync, creadaEn: adelantado })).toBe(sync);
-    const viejo = new Date(sync.getTime() - MARGEN_SINCRONIZACION_MS - 1);
+    const leve = new Date(sync.getTime() + DESFASE_RELOJ_MS);
+    expect(fechaEfectiva({ fecha: sync, creadaEn: leve })).toBe(leve);
+    const viejo = new Date(sync.getTime() - ANTIGUEDAD_MAXIMA_MS - 1);
     expect(fechaEfectiva({ fecha: sync, creadaEn: viejo })).toBe(sync);
     expect(fechaEfectiva({ fecha: sync, creadaEn: new Date(Number.NaN) })).toBe(sync);
   });
 
-  it('la consulta por fecha del servidor se amplía en el margen', () => {
-    const c = rangoConsulta(lunes);
-    expect(c.inicio).toEqual(lunes.inicio);
-    expect(c.fin.getTime()).toBe(lunes.fin.getTime() + MARGEN_SINCRONIZACION_MS);
+  it('se consulta por fecha y por creadaEn, sin margen; se une por id', () => {
+    expect(CAMPOS_CONSULTA_RANGO).toEqual(['fecha', 'creadaEn']);
     expect(enRangoEfectivo({ fecha: sync, creadaEn: cobro }, lunes)).toBe(true);
     expect(enRangoEfectivo({ fecha: sync, creadaEn: cobro }, martes)).toBe(false);
+    const a1 = { id: 'a', v: 1 };
+    const a2 = { id: 'a', v: 2 };
+    expect(unirPorId([a1, { id: 'b', v: 1 }], [a2])).toEqual([a2, { id: 'b', v: 1 }]);
   });
 
   it('el reporte y el cierre cuentan la venta el día del cobro, no el de la sincronización', () => {
@@ -239,5 +244,44 @@ describe('fecha efectiva de ventas sin conexión (D-26)', () => {
 
     expect(resumenVentas([v], [], lunes)).toEqual({ total: 12, cantidad: 1 });
     expect(resumenVentas([v], [], martes)).toEqual({ total: 0, cantidad: 0 });
+  });
+});
+
+describe('venta sin conexión que pasó semanas en el outbox (D-32)', () => {
+  // Hoy es 15/11; la venta se cobró sin red el 2/11 y llegó al servidor hoy a las 09:00.
+  const hoy = crearRango(new Date(2026, 10, 15), new Date(2026, 10, 15));
+  const dos = crearRango(new Date(2026, 10, 2), new Date(2026, 10, 2));
+  const cobro = new Date(2026, 10, 2, 18, 30);
+  const sync = new Date(2026, 10, 15, 9, 0);
+  const vieja: Venta = { ...venta('v-vieja', 40, 'Efectivo', sync), creadaEn: cobro };
+  const deHoy = venta('v-hoy', 10, 'Yape/Plin', new Date(2026, 10, 15, 8, 0));
+
+  it('creada hace 13 días y sincronizada hoy: cae en su día real, no en "vendido hoy"', () => {
+    expect(fechaEfectiva(vieja)).toBe(cobro);
+    expect(resumenVentas([vieja, deHoy], [], hoy)).toEqual({ total: 10, cantidad: 1 });
+    expect(resumenVentas([vieja, deHoy], [], dos)).toEqual({ total: 40, cantidad: 1 });
+    const r = generarReporte([vieja, deHoy], [], crearRango(new Date(2026, 10, 1), hoy.fin));
+    expect(r.serieDiaria).toEqual([
+      { dia: '2026-11-02', ingresos: 40 },
+      { dia: '2026-11-15', ingresos: 10 },
+    ]);
+  });
+
+  it('reloj adelantado (creadaEn > fecha + desfase): cuenta el día del servidor', () => {
+    const adelantada: Venta = {
+      ...venta('v-adel', 7, 'Efectivo', sync),
+      creadaEn: new Date(2026, 10, 16, 9, 0),
+    };
+    expect(fechaEfectiva(adelantada)).toBe(sync);
+    expect(resumenVentas([adelantada], [], hoy)).toEqual({ total: 7, cantidad: 1 });
+  });
+
+  it('creadaEn absurdo (más de 60 días antes): cuenta el día del servidor', () => {
+    const absurda: Venta = {
+      ...venta('v-abs', 9, 'Efectivo', sync),
+      creadaEn: new Date(2000, 0, 1),
+    };
+    expect(fechaEfectiva(absurda)).toBe(sync);
+    expect(resumenVentas([absurda], [], hoy)).toEqual({ total: 9, cantidad: 1 });
   });
 });

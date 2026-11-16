@@ -32,7 +32,12 @@ import type {
   ResultadoConfirmacion,
 } from '@/domain/ports';
 import type { AbonoNuevo, CargoNuevo, OperacionMovimiento } from '@/domain/rules/fiado';
-import { enRangoEfectivo, rangoConsulta, type RangoFechas } from '@/domain/rules/reportes';
+import {
+  CAMPOS_CONSULTA_RANGO,
+  enRangoEfectivo,
+  unirPorId,
+  type RangoFechas,
+} from '@/domain/rules/reportes';
 import type { OperacionVenta } from '@/domain/rules/venta';
 
 import { aCliente, aConfig, aMovimiento, aProducto, aVenta, deProducto } from '../mappers';
@@ -146,25 +151,40 @@ export class ClientesFirestore implements RepositorioClientes {
 }
 
 /**
- * D-26: se consulta `fecha` (servidor) desde el inicio hasta fin + margen, porque una venta
- * cobrada sin conexión puede sincronizarse días después. Luego se filtra en memoria por
- * fecha efectiva (`creadaEn ?? fecha`) con `soloDelRango`.
+ * D-32: una consulta por campo de `CAMPOS_CONSULTA_RANGO` (`fecha` del servidor y `creadaEn`
+ * del teléfono) con el mismo rango. Una venta cobrada sin conexión el 2 y sincronizada el 15
+ * tiene `creadaEn` en el día 2: la trae la segunda consulta aunque `fecha` esté lejos.
+ * Cada consulta filtra un solo campo: índices simples automáticos, sin índices compuestos.
  */
-const rangoTimestamps = (rango: RangoFechas) => {
-  const consulta = rangoConsulta(rango);
-  return [
-    where('fecha', '>=', Timestamp.fromDate(consulta.inicio)),
-    where('fecha', '<=', Timestamp.fromDate(consulta.fin)),
-  ] as const;
-};
+export const consultasRango = (col: Query<DocumentData>, rango: RangoFechas) =>
+  CAMPOS_CONSULTA_RANGO.map((campo) =>
+    query(
+      col,
+      where(campo, '>=', Timestamp.fromDate(rango.inicio)),
+      where(campo, '<=', Timestamp.fromDate(rango.fin)),
+    ),
+  );
 
-const soloDelRango =
-  <T extends { fecha: Date | null; creadaEn?: Date }>(
-    rango: RangoFechas,
-    onDatos: (d: T[]) => void,
-  ) =>
-  (datos: T[]) =>
-    onDatos(datos.filter((d) => enRangoEfectivo(d, rango)));
+/**
+ * Escucha varias consultas y emite la unión por id, filtrada por fecha efectiva, recién
+ * cuando todas respondieron al menos una vez (así no se ve un total parcial).
+ */
+export function escucharUnion<T extends { id: string; fecha: Date | null; creadaEn?: Date }>(
+  suscripciones: readonly ((onDatos: (d: T[]) => void) => Cancelar)[],
+  rango: RangoFechas,
+  onDatos: (d: T[]) => void,
+): Cancelar {
+  const ultimos: (T[] | null)[] = suscripciones.map(() => null);
+  const cancelaciones = suscripciones.map((suscribir, i) =>
+    suscribir((datos) => {
+      ultimos[i] = datos;
+      if (ultimos.every((u) => u !== null)) {
+        onDatos(unirPorId(...(ultimos as T[][])).filter((d) => enRangoEfectivo(d, rango)));
+      }
+    }),
+  );
+  return () => cancelaciones.forEach((c) => c());
+}
 
 /** Hora del teléfono (epoch ms) como Timestamp: campo aditivo `creadaEn` (D-26). */
 const creadaEn = (ms: number) => ({ creadaEn: Timestamp.fromMillis(ms) });
@@ -214,17 +234,19 @@ export class FiadoFirestore implements RemotoFiado {
     );
   }
 
-  /** Solo rango de fecha (índice simple). `monto < 0` se filtra en el dominio (B-06). */
+  /** Solo rangos de fecha (índices simples, D-32). `monto < 0` se filtra en el dominio (B-06). */
   observarRango(
     rango: RangoFechas,
     onDatos: Parameters<RepositorioFiado['observarRango']>[1],
     onError: AlError,
   ): Cancelar {
-    return escucharConfirmado(
-      query(this.rutas.coleccion('deudas'), ...rangoTimestamps(rango)),
-      aMovimiento,
-      soloDelRango(rango, onDatos),
-      onError,
+    return escucharUnion(
+      consultasRango(this.rutas.coleccion('deudas'), rango).map(
+        (q) => (emitir: (d: ReturnType<typeof aMovimiento>[]) => void) =>
+          escucharConfirmado(q, aMovimiento, emitir, onError),
+      ),
+      rango,
+      onDatos,
     );
   }
 
@@ -347,14 +369,21 @@ export class VentasFirestore implements RepositorioVentas {
     onDatos: Parameters<RepositorioVentas['observarRango']>[1],
     onError: AlError,
   ): Cancelar {
-    return escucharSeguro(
-      () =>
-        onSnapshot(
-          query(this.rutas.coleccion('ventas'), ...rangoTimestamps(rango)),
-          (snap) => soloDelRango(rango, onDatos)(mapear(snap, aVenta)),
-          (e) => onError(aError(e)),
-        ),
-      onError,
+    return escucharUnion(
+      consultasRango(this.rutas.coleccion('ventas'), rango).map(
+        (q) => (emitir: (d: Venta[]) => void) =>
+          escucharSeguro(
+            () =>
+              onSnapshot(
+                q,
+                (snap) => emitir(mapear(snap, aVenta)),
+                (e) => onError(aError(e)),
+              ),
+            onError,
+          ),
+      ),
+      rango,
+      onDatos,
     );
   }
 }

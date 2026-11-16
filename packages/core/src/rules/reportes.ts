@@ -23,34 +23,54 @@ export function crearRango(desde: Date, hasta: Date): RangoFechas {
 export const claveDia = (fecha: Date): string =>
   `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 
-/**
- * D-26: máximo desfase aceptado entre la hora del teléfono (`creadaEn`) y la del servidor
- * (`fecha`). Las consultas por rango piden `fecha` hasta `fin + MARGEN` para traer las
- * ventas sin conexión que se sincronizaron después; más allá de este margen manda `fecha`.
- */
-export const MARGEN_SINCRONIZACION_MS = 3 * 24 * 60 * 60 * 1000;
+const DIA_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Fecha con la que se agrupa por día (D-26): `creadaEn ?? fecha`, con dos resguardos para
- * que cada documento caiga en exactamente un día y siempre dentro de lo que se consulta:
- *  - `creadaEn` posterior a `fecha` (reloj del teléfono adelantado): manda `fecha`.
- *  - `creadaEn` anterior a `fecha - MARGEN` (reloj atrasado u outbox muy viejo): manda `fecha`.
+ * D-32: cuánto puede ir adelantado el reloj del teléfono respecto del servidor sin dejar de
+ * confiar en `creadaEn`. Un `creadaEn` posterior a `fecha + DESFASE_RELOJ_MS` es imposible
+ * (nadie cobra después de sincronizar): el reloj está mal y manda `fecha`.
+ */
+export const DESFASE_RELOJ_MS = 5 * 60 * 1000;
+
+/**
+ * D-32: antigüedad máxima creíble de una venta en el outbox. Una venta puede pasar semanas sin
+ * señal y debe caer en su día real; más de 60 días antes de llegar al servidor se toma como
+ * reloj atrasado (fecha de fábrica, batería agotada) y manda `fecha`.
+ */
+export const ANTIGUEDAD_MAXIMA_MS = 60 * DIA_MS;
+
+/**
+ * Fecha con la que se agrupa por día (D-26, revisada en D-32): `creadaEn` (hora del teléfono
+ * al cobrar) si es creíble frente a `fecha` (hora del servidor al sincronizar); si no, `fecha`.
+ * Creíble = `fecha − ANTIGUEDAD_MAXIMA_MS ≤ creadaEn ≤ fecha + DESFASE_RELOJ_MS`.
+ * Cada documento cae en exactamente un día.
  */
 export function fechaEfectiva(d: { fecha: Date | null; creadaEn?: Date | null }): Date | null {
   const { fecha, creadaEn } = d;
   if (!creadaEn || Number.isNaN(creadaEn.getTime())) return fecha;
   if (!fecha) return creadaEn;
-  const desfase = fecha.getTime() - creadaEn.getTime();
-  return desfase >= 0 && desfase <= MARGEN_SINCRONIZACION_MS ? creadaEn : fecha;
+  const atraso = fecha.getTime() - creadaEn.getTime();
+  return atraso >= -DESFASE_RELOJ_MS && atraso <= ANTIGUEDAD_MAXIMA_MS ? creadaEn : fecha;
 }
 
-/** Rango de `fecha` (servidor) que hay que consultar para cubrir `rango` por fecha efectiva. */
-export const rangoConsulta = (rango: RangoFechas): RangoFechas => ({
-  inicio: rango.inicio,
-  fin: new Date(rango.fin.getTime() + MARGEN_SINCRONIZACION_MS),
-});
+/**
+ * D-32: campos por los que se consulta un rango de fechas efectivas. La fecha efectiva es
+ * `creadaEn` o `fecha`, así que todo documento del rango tiene uno de los dos dentro de él:
+ * se hacen DOS consultas de un solo campo (`fecha` en rango, `creadaEn` en rango; índices
+ * simples automáticos, sin índices compuestos), se unen por id (`unirPorId`) y se filtra en
+ * memoria por fecha efectiva (`enRangoEfectivo`). Sin margen fijo: una venta sincronizada
+ * semanas después sigue apareciendo en su día.
+ */
+export const CAMPOS_CONSULTA_RANGO = ['fecha', 'creadaEn'] as const;
 
-/** ¿La fecha efectiva del documento cae en el rango? (filtro en memoria tras `rangoConsulta`). */
+/** Une resultados de varias consultas: un documento por id (gana la última lista). */
+export function unirPorId<T extends { id: string }>(...listas: readonly (readonly T[])[]): T[] {
+  const porId = new Map<string, T>();
+  for (const lista of listas) for (const d of lista) porId.set(d.id, d);
+  return [...porId.values()];
+}
+
+/** ¿La fecha efectiva del documento cae en el rango? (filtro en memoria tras las consultas). */
 export function enRangoEfectivo(
   d: { fecha: Date | null; creadaEn?: Date | null },
   rango: RangoFechas,
@@ -85,7 +105,7 @@ export function resumenVentas(
   let centimos = 0;
   for (const v of sincronizadas) {
     if (vistas.has(v.id)) continue;
-    // La consulta trae `fecha` hasta fin + margen (D-26): aquí se filtra por fecha efectiva.
+    // Las consultas traen por `fecha` y por `creadaEn` (D-32): aquí se filtra por fecha efectiva.
     const f = fechaEfectiva({ fecha: v.fecha ?? null, creadaEn: v.creadaEn });
     if (f && (f.getTime() < rango.inicio.getTime() || f.getTime() > rango.fin.getTime())) continue;
     vistas.set(v.id, { id: v.id, anulaA: v.anulaA });

@@ -56,7 +56,9 @@ describe('WhatsApp', () => {
 
   it('mensaje respetuoso: saluda por el nombre, dice el saldo y agradece; sin palabras duras', () => {
     const m = mensajeRecordatorio({ nombreCliente: 'Rosa Quispe', saldo: 12.5 });
-    expect(m).toBe('Hola Rosa, te saluda tu bodega. Te recordamos con cariño que tu saldo pendiente es S/ 12.50. Cuando puedas, te esperamos. ¡Gracias!');
+    expect(m).toBe(
+      'Hola Rosa, te saluda tu bodega. Te recordamos con cariño que tu saldo pendiente es S/ 12.50. Cuando puedas, te esperamos. ¡Gracias!',
+    );
     expect(m).not.toMatch(/deuda|moros|urgente|debe/i);
   });
 
@@ -198,6 +200,15 @@ describe('recuperadoEnMes', () => {
       mov('a', -2, new Date(2026, 11, 1, 0, 0)), // diciembre
     ];
     expect(recuperadoEnMes(movs, AHORA)).toBe(16.5);
+  });
+
+  it('abono cobrado en octubre que pasó semanas en el teléfono no suma a noviembre (D-32)', () => {
+    const movs = [
+      mov('a', -20, dia(15, 9), { creadaEn: new Date(2026, 9, 10, 17) }),
+      mov('a', -4, dia(15, 9), { creadaEn: dia(2, 17) }), // 13 días en el outbox: noviembre
+    ];
+    expect(recuperadoEnMes(movs, AHORA)).toBe(4);
+    expect(recuperadoEnMes(movs, new Date(2026, 9, 20))).toBe(20);
   });
 });
 

@@ -191,6 +191,22 @@ describe('resumenCaja (esperado)', () => {
     expect(r.esperado).toBe(46);
   });
 
+  it('una venta cobrada hace 13 días y sincronizada hoy no entra al esperado de hoy (D-32)', () => {
+    const r = resumenCaja({
+      ...base,
+      ventas: [
+        venta('vieja', 40, h(9), { creadaEn: h(18, 30, 2) }),
+        // Reloj adelantado: cuenta por la hora del servidor (dentro de la sesión).
+        venta('adelantada', 6, h(10), { creadaEn: h(10, 0, 16) }),
+        // creadaEn absurdo (> 60 días): cuenta por la hora del servidor.
+        venta('absurda', 2, h(11), { creadaEn: new Date(2000, 0, 1) }),
+      ],
+      movimientosFiado: [abono(-5, h(12), { creadaEn: h(12, 0, 1) })],
+      movimientosCaja: [],
+    });
+    expect(r).toMatchObject({ ventasEfectivo: 8, abonosEfectivo: 0, esperado: 58 });
+  });
+
   it('usa la fecha efectiva (D-26) y suma una sola vez lo que está en el outbox y en el servidor', () => {
     const r = resumenCaja({
       ...base,

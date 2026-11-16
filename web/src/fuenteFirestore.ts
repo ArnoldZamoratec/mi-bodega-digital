@@ -1,4 +1,4 @@
-import { armarAnulacion, rangoConsulta, type OperacionVenta } from '@bodegon/core';
+import { armarAnulacion, CAMPOS_CONSULTA_RANGO, type OperacionVenta } from '@bodegon/core';
 import {
   addDoc,
   deleteDoc,
@@ -17,6 +17,7 @@ import { signOut } from 'firebase/auth';
 import { actualizarDatos, type FuenteDatos } from './datos';
 import { auth, db } from './firebase';
 import { registrarListener } from './listeners';
+import { unirConsultasRango } from './logic/rango';
 import { aCliente, aMovimiento, aProducto, aVenta, porNombre } from './mappers';
 import { aCaja, aMovimientoCaja, escrituraCaja } from './mappersCaja';
 import {
@@ -177,51 +178,54 @@ export const fuenteFirestore: FuenteDatos = {
   },
 
   observarRango(rango, onDatos, onError) {
-    // D-26: se consulta por `fecha` hasta fin + margen (ventas sin conexión sincronizadas
-    // después); el core filtra por fecha efectiva.
-    const consulta = rangoConsulta(rango);
-    const desde = Timestamp.fromDate(consulta.inicio);
-    const hasta = Timestamp.fromDate(consulta.fin);
-    let ventas: ReturnType<typeof aVenta>[] = [];
-    let movimientos: ReturnType<typeof aMovimiento>[] = [];
-    let listas = { ventas: false, movimientos: false };
+    // D-32: una consulta por `fecha` y otra por `creadaEn` (mismo rango, índices simples) en
+    // cada colección; se unen por id y se filtran por fecha efectiva. Una venta cobrada sin
+    // conexión hace semanas cae en su día real, no en el de la sincronización.
+    const desde = Timestamp.fromDate(rango.inicio);
+    const hasta = Timestamp.fromDate(rango.fin);
+    const n = CAMPOS_CONSULTA_RANGO.length;
+    const ventas: (ReturnType<typeof aVenta>[] | null)[] = Array.from({ length: n }, () => null);
+    const movimientos: (ReturnType<typeof aMovimiento>[] | null)[] = Array.from({ length: n }, () => null);
     const emitir = () => {
-      if (listas.ventas && listas.movimientos) onDatos(ventas, movimientos);
+      if (!ventas.every(Boolean) || !movimientos.every(Boolean)) return;
+      const u = unirConsultasRango(
+        ventas as ReturnType<typeof aVenta>[][],
+        movimientos as ReturnType<typeof aMovimiento>[][],
+        rango,
+      );
+      onDatos(u.ventas, u.movimientos);
     };
 
-    const cancelarVentas = registrarListener(
-      onSnapshot(
-        query(getVentasCol(), where('fecha', '>=', desde), where('fecha', '<=', hasta)),
-        (s) => {
-          ventas = s.docs.map((d) => aVenta(d.id, d.data({ serverTimestamps: 'estimate' })));
-          listas = { ...listas, ventas: true };
-          emitir();
-        },
-        (e) => {
-          console.error('Error en listener de ventas:', e);
-          onError('No pudimos traer las ventas. Revisa tu conexión.');
-        },
+    const cancelaciones = CAMPOS_CONSULTA_RANGO.flatMap((campo, i) => [
+      registrarListener(
+        onSnapshot(
+          query(getVentasCol(), where(campo, '>=', desde), where(campo, '<=', hasta)),
+          (s) => {
+            ventas[i] = s.docs.map((d) => aVenta(d.id, d.data({ serverTimestamps: 'estimate' })));
+            emitir();
+          },
+          (e) => {
+            console.error('Error en listener de ventas:', e);
+            onError('No pudimos traer las ventas. Revisa tu conexión.');
+          },
+        ),
       ),
-    );
-    // B-06: sin filtro monto<0 (requeriría índice compuesto); el core filtra en memoria.
-    const cancelarDeudas = registrarListener(
-      onSnapshot(
-        query(getDeudasCol(), where('fecha', '>=', desde), where('fecha', '<=', hasta)),
-        (s) => {
-          movimientos = s.docs.map((d) => aMovimiento(d.id, d.data({ serverTimestamps: 'estimate' })));
-          listas = { ...listas, movimientos: true };
-          emitir();
-        },
-        (e) => {
-          console.error('Error en listener de deudas:', e);
-          onError('No pudimos traer los abonos. Revisa tu conexión.');
-        },
+      // B-06: sin filtro monto<0 (requeriría índice compuesto); el core filtra en memoria.
+      registrarListener(
+        onSnapshot(
+          query(getDeudasCol(), where(campo, '>=', desde), where(campo, '<=', hasta)),
+          (s) => {
+            movimientos[i] = s.docs.map((d) => aMovimiento(d.id, d.data({ serverTimestamps: 'estimate' })));
+            emitir();
+          },
+          (e) => {
+            console.error('Error en listener de deudas:', e);
+            onError('No pudimos traer los abonos. Revisa tu conexión.');
+          },
+        ),
       ),
-    );
-    return () => {
-      cancelarVentas();
-      cancelarDeudas();
-    };
+    ]);
+    return () => cancelaciones.forEach((c) => c());
   },
 
   nuevoIdCaja: () => doc(getCajasCol()).id,
