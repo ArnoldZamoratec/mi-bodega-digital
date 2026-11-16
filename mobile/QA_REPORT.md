@@ -12,11 +12,11 @@ emulador Android **Pixel 5 · API 37**.
 |---|---|
 | `tsc --noEmit` (strict + `noUncheckedIndexedAccess`) | ✅ 0 errores |
 | ESLint (`eslint-config-expo` + Prettier) | ✅ 0 errores, 0 advertencias |
-| Jest — unitarias, integración y UI | ✅ 180/180 (26 suites) — 2026-11-15, con Cobranza (D-27) y Caja (D-28) |
+| Jest — unitarias, integración y UI | ✅ 220/220 (29 suites: 128 core + 92 móvil) — 2026-11-15, con Cobranza (D-27), Caja (D-28) y disposición adaptable (D-30) |
 | Cobertura capa de dominio | ✅ ~99 % líneas (umbral exigido 70 %, aplicado en `jest.coverageThreshold`) |
 | Reglas Firestore (endurecidas 2026-11 + `ultimoRecordatorio` y `cajas`) — emulador | ✅ 31/31 (firebase-tools 13.35.1, JDK 17) |
 | `expo-doctor` | ✅ 20/20 checks |
-| Bundle Metro Android (Hermes) | ✅ 6.1 MB |
+| Bundle Metro Android (Hermes) | ✅ 6.4 MB (`npx expo export --platform android`, 2026-11-15, D-30) |
 | Build nativo Android release (Gradle local) | ✅ `app-release.apk` arm64-v8a, 37 MB (desde `C:\mb`, ver §6.0) |
 | Ejecución en dispositivo real | ✅ Samsung Galaxy A24 (SM-A245M), Android 16 / API 36: instala, arranca y muestra el login; sin errores en logcat |
 | E2E Maestro | ⏳ Flujos escritos, no ejecutados — ver §6.0 |
@@ -62,6 +62,18 @@ movimientos tolerantes, `ultimoRecordatorio` y reconstrucción de fechas desde l
 - **Caja**: abrir con monto inicial; esperado con ventas en efectivo (sincronizadas y en el
   teléfono), abono en efectivo y egreso; cierre con faltante mostrado antes de confirmar,
   guardado e historial; monto inválido.
+
+- **Disposición adaptable (D-30)** (`disposicion.test.tsx`, 18 casos; la ventana se simula con
+  `Dimensions.set` vía `test-utils/ventana.ts`): umbrales M3 (600/840dp) y columnas por ancho y
+  letra; POS en teléfono (barra flotante, 2 columnas) vs. POS de mostrador 1280×800 (ticket
+  persistente, sin barra duplicada, 5 columnas, +/−, total y "Cobrar") y tablet vertical (stock
+  respetado desde el ticket); lista–detalle en expandida para Fiado, Cobranza e Inventario y una
+  columna en teléfono/tablet vertical; Caja en dos columnas; KPIs de Reportes en fila (media+) y
+  uno por fila con letra al 200 %; letra al 200 % en 320dp: POS a 1 columna, montos con
+  `maxFontSizeMultiplier` 1.6 y Cobro/Fiado/Cobranza/Inventario/Caja sin errores; riel lateral de
+  navegación (no reserva alto al pie) y diálogos con tope de 560dp.
+- Nota: el preset de Jest de RN simula 750×1334 con letra 2×; las pruebas que no fijan ventana
+  corren en disposición **media** con letra grande.
 
 ### 2.5 Reglas de Firestore (`firebase/reglas.test.mjs`, emulador)
 Aislamiento entre bodegas, acceso anónimo, escrituras exactas de la web v5.3 (venta, cargo,
@@ -174,3 +186,14 @@ al volver a primer plano y al iniciar sesión; escrituras no-venta bloqueadas co
 9. **Recordatorios (D-27)**: `ultimoRecordatorio` se escribe sin outbox propio; sin señal queda
    en la cola en memoria del SDK y se pierde si se cierra la app antes de reconectar (el
    WhatsApp ya salió; solo se pierde la anotación).
+
+## 7. Disposición adaptable (D-30) — pendiente de verificar en equipos reales
+
+Cubierto por pruebas (RNTL) y bundle Android; **no** probado aún en pantalla real:
+- Riel lateral y lista–detalle en tablet Android horizontal / POS de mostrador (1024×600,
+  1280×800), incluida la muesca lateral y la barra de gestos en horizontal.
+- Plegables al desplegar/plegar en caliente (cambio compacta ↔ media ↔ expandida con estado del
+  carrito y selección conservados) y iPad en Split View / Slide Over.
+- Letra del sistema al 200 % (Android "Tamaño de fuente" máximo + "Tamaño de visualización";
+  iOS Texto más grande) recorriendo todas las pantallas, sobre todo diálogos de Caja y Cobro.
+- Ancho del gráfico de Reportes medido con `onLayout` (react-native-gifted-charts) en tablets.

@@ -147,7 +147,7 @@ Para el simulador de iOS (solo en Mac): `npx eas-cli@latest build -p ios --profi
 ## 7. Pruebas
 
 ```bash
-npm run verify          # 180 pruebas (26 suites) + cobertura de dominio (~99 %)
+npm run verify          # 220 pruebas (29 suites: 128 core + 92 móvil) + cobertura de dominio (~99 %)
 cd firebase && npm test # 31 pruebas de reglas en el emulador (ver QA_REPORT §2.5)
 ```
 
