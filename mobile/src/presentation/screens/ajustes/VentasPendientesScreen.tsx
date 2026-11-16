@@ -5,6 +5,7 @@ import { Button, Text } from 'react-native-paper';
 import type { EntradaCola } from '@/domain/ports';
 import { formatearSoles, sumarSoles } from '@/domain/rules/dinero';
 
+import { sincronizarTodo } from '../../app/sincronizacion';
 import { Aparecer } from '../../components/Aparecer';
 import { confirmar } from '../../components/Confirmar';
 import { EstadoVista } from '../../components/EstadoVista';
@@ -33,14 +34,17 @@ export function VentasPendientesScreen() {
         .filter((p) => p.bloqueada)
         .map((p) => contenedor.cola.actualizar({ ...p, bloqueada: false })),
     );
-    const r = await contenedor.sincronizador.sincronizar();
-    // Los fiados registrados sin señal van en su propio outbox (D-24).
-    await contenedor.sincronizadorFiado.sincronizar();
+    // D-31: "Sincronizar ahora" reenvía también lo que quedó "en vuelo" (confirmar es
+    // idempotente). Incluye los fiados (D-24) y la caja (D-28). Si la conexión con la nube
+    // quedó trabada, se recrea y se vuelve a intentar sola.
+    const r = await sincronizarTodo(contenedor, { forzar: true });
     setSincronizando(false);
     avisar(
       r.pendientes === 0
         ? 'Todas las ventas están sincronizadas'
-        : `Quedan ${r.pendientes} venta(s) pendiente(s)`,
+        : r.instanciaRota
+          ? 'Reconectando con la nube… se reintentará en unos segundos'
+          : `Quedan ${r.pendientes} venta(s) pendiente(s)`,
       r.pendientes === 0 ? 'exito' : 'info',
     );
   };

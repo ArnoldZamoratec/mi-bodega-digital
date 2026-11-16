@@ -13,8 +13,27 @@ const PERMANENTES = new Set([
   'firestore/permission-denied',
 ]);
 
+const mensaje = (e: unknown): string =>
+  e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+
+/**
+ * D-31: el cliente de Firestore quedó inutilizable y hay que recrearlo.
+ *  - `INTERNAL ASSERTION FAILED`: la cola interna del SDK falló (p. ej. ID 3c6b al
+ *    clasificar `auth/network-request-failed` dentro de una transacción) y cada operación
+ *    posterior lanza "AsyncQueue is already failed" (ID b7d5) o queda colgada.
+ *  - "already been terminated": una operación vieja llegó a la instancia ya reemplazada. Su
+ *    código es `failed-precondition`, que de otro modo bloquearía la entrada como permanente.
+ */
+export const esInstanciaRotaFirebase = (e: unknown): boolean => {
+  const m = mensaje(e);
+  return (
+    m.includes('INTERNAL ASSERTION FAILED') || m.includes('client has already been terminated')
+  );
+};
+
 export const clasificadorFirebase: ClasificadorErrores = {
-  esErrorPermanente: (e) => PERMANENTES.has(codigo(e)),
+  esErrorPermanente: (e) => !esInstanciaRotaFirebase(e) && PERMANENTES.has(codigo(e)),
+  esInstanciaRota: esInstanciaRotaFirebase,
 };
 
 const MENSAJES_AUTH: Record<string, string> = {

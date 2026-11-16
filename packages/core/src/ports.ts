@@ -117,4 +117,10 @@ export interface ServicioAuth {
 export interface ClasificadorErrores {
   /** true si reintentar no lo resolverá (permisos, datos inválidos). */
   esErrorPermanente(error: unknown): boolean;
+  /**
+   * D-31: true si el error indica que el cliente de la base quedó inutilizable (p. ej.
+   * `INTERNAL ASSERTION FAILED` del SDK de Firestore): reintentar en la misma instancia no
+   * sirve; hay que recrearla. Opcional: sin él nunca se reporta.
+   */
+  esInstanciaRota?(error: unknown): boolean;
 }

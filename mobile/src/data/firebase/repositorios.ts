@@ -47,6 +47,29 @@ const mapear = <T>(
 const aError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
 
 /**
+ * D-31: con el SDK roto ("AsyncQueue is already failed") `onSnapshot` y su cancelación
+ * lanzan de forma síncrona. Ni suscribirse ni cancelar debe tumbar una pantalla (un error en
+ * la limpieza de un efecto llega al ErrorBoundary): el error va a `onError` y la
+ * cancelación se vuelve inocua. Al recrear la instancia los listeners se vuelven a abrir.
+ */
+export function escucharSeguro(suscribir: () => Cancelar, onError: AlError): Cancelar {
+  let cancelar: Cancelar;
+  try {
+    cancelar = suscribir();
+  } catch (e) {
+    onError(aError(e));
+    return () => undefined;
+  }
+  return () => {
+    try {
+      cancelar();
+    } catch {
+      // Instancia ya rota o terminada: no hay nada que cancelar.
+    }
+  };
+}
+
+/**
  * Listener que ignora las respuestas "desde caché" hasta que el servidor confirmó una vez.
  * En RN el SDK solo cachea en memoria: al abrir la app sin red responde de inmediato con
  * una lista VACÍA que no es la verdad (y antes borraba la caché persistente, D-05). Hasta
@@ -60,13 +83,17 @@ export function escucharConfirmado<T>(
   onError: AlError,
 ): Cancelar {
   let confirmado = false;
-  return onSnapshot(
-    consulta,
-    (snap) => {
-      if (!snap.metadata.fromCache) confirmado = true;
-      if (confirmado) onDatos(mapear(snap, fn));
-    },
-    (e) => onError(aError(e)),
+  return escucharSeguro(
+    () =>
+      onSnapshot(
+        consulta,
+        (snap) => {
+          if (!snap.metadata.fromCache) confirmado = true;
+          if (confirmado) onDatos(mapear(snap, fn));
+        },
+        (e) => onError(aError(e)),
+      ),
+    onError,
   );
 }
 
@@ -320,10 +347,14 @@ export class VentasFirestore implements RepositorioVentas {
     onDatos: Parameters<RepositorioVentas['observarRango']>[1],
     onError: AlError,
   ): Cancelar {
-    return onSnapshot(
-      query(this.rutas.coleccion('ventas'), ...rangoTimestamps(rango)),
-      (snap) => soloDelRango(rango, onDatos)(mapear(snap, aVenta)),
-      (e) => onError(aError(e)),
+    return escucharSeguro(
+      () =>
+        onSnapshot(
+          query(this.rutas.coleccion('ventas'), ...rangoTimestamps(rango)),
+          (snap) => soloDelRango(rango, onDatos)(mapear(snap, aVenta)),
+          (e) => onError(aError(e)),
+        ),
+      onError,
     );
   }
 }
@@ -332,10 +363,14 @@ export class ConfigFirestore implements RepositorioConfig {
   constructor(private readonly rutas: Rutas) {}
 
   observar(onDatos: (c: ConfigNegocio) => void, onError: AlError): Cancelar {
-    return onSnapshot(
-      this.rutas.configNegocio(),
-      (snap) => onDatos(aConfig(snap.data())),
-      (e) => onError(aError(e)),
+    return escucharSeguro(
+      () =>
+        onSnapshot(
+          this.rutas.configNegocio(),
+          (snap) => onDatos(aConfig(snap.data())),
+          (e) => onError(aError(e)),
+        ),
+      onError,
     );
   }
 

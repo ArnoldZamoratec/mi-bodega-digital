@@ -13,6 +13,9 @@ import { useCarrito } from '../stores/carritoStore';
 import { useDatos } from '../stores/datosStore';
 import { useRed } from '../stores/redStore';
 import { useSesion } from '../stores/sesionStore';
+import { registrarRecuperador, sincronizarTodo } from './sincronizacion';
+
+const sinReinicio = () => undefined;
 
 /**
  * Orquesta el ciclo de vida de la sesión:
@@ -22,24 +25,26 @@ import { useSesion } from '../stores/sesionStore';
  *    primer plano.
  *  - Reprograma el recordatorio de fiados cuando cambian los datos.
  */
-/**
- * Ventas primero: un abono puede imputarse al cargo de una venta fiada aún pendiente.
- * La caja (D-28) es independiente y va en paralelo.
- */
-function sincronizarTodo(c: Contenedor): void {
-  void c.sincronizador.sincronizar().finally(() => c.sincronizadorFiado.sincronizar());
-  void c.sincronizadorCaja.sincronizar();
-}
+/** D-31: como mucho una recuperación de Firestore cada 30 s (evita bucles). */
+export const ESPERA_RECUPERACION_MS = 30_000;
+
+const opcionesDatos = {
+  alCambiarProductos: (...args: Parameters<typeof alertarStockBajo>) =>
+    void alertarStockBajo(...args),
+};
 
 export function useArranque(
   auth: ServicioAuth,
   crearContenedor: (uid: string, enLinea: () => boolean) => Contenedor,
+  /** D-31: reemplaza la instancia de Firestore rota (`reiniciarFirestore`). */
+  reiniciarCliente: () => void = sinReinicio,
 ) {
   const contenedor = useSesion((s) => s.contenedor);
   const enLinea = useRed((s) => s.enLinea);
   const movimientos = useDatos((s) => s.movimientos.datos);
   const config = useDatos((s) => s.config);
   const cancelarDatos = useRef<(() => void) | null>(null);
+  const ultimaRecuperacion = useRef(Number.NEGATIVE_INFINITY);
 
   // Red
   useEffect(() => useRed.getState().iniciar(), []);
@@ -58,25 +63,46 @@ export function useArranque(
       }
       const c = crearContenedor(usuario.uid, () => useRed.getState().enLinea);
       useSesion.getState().autenticar(usuario, c);
-      cancelarDatos.current = useDatos.getState().iniciar(c, {
-        alCambiarProductos: (antes, despues, cfg) => void alertarStockBajo(antes, despues, cfg),
-      });
+      cancelarDatos.current = useDatos.getState().iniciar(c, opcionesDatos);
       void prepararNotificaciones(false);
-      sincronizarTodo(c);
+      // D-31: sin red no se abren transacciones; se sincroniza al volver la conexión.
+      if (useRed.getState().enLinea) void sincronizarTodo(c);
     });
   }, [auth, crearContenedor]);
+
+  // D-31: Firestore quedó inservible (INTERNAL ASSERTION FAILED o envíos que nunca terminan).
+  // Se recrea la instancia y el contenedor de la sesión; los outbox persisten y se reenvían.
+  useEffect(
+    () =>
+      registrarRecuperador(() => {
+        const sesion = useSesion.getState();
+        const ahora = Date.now();
+        if (sesion.estado !== 'autenticado') return;
+        if (ahora - ultimaRecuperacion.current < ESPERA_RECUPERACION_MS) return;
+        ultimaRecuperacion.current = ahora;
+        console.warn('[sync] Firestore inutilizable: se recrea la instancia (D-31)');
+        cancelarDatos.current?.();
+        cancelarDatos.current = null;
+        reiniciarCliente();
+        const c = crearContenedor(sesion.usuario.uid, () => useRed.getState().enLinea);
+        useSesion.getState().autenticar(sesion.usuario, c);
+        cancelarDatos.current = useDatos.getState().iniciar(c, opcionesDatos);
+        if (useRed.getState().enLinea) void sincronizarTodo(c, { forzar: true });
+      }),
+    [crearContenedor, reiniciarCliente],
+  );
 
   useEffect(() => () => cancelarDatos.current?.(), []);
 
   // Reintento de lo pendiente al volver la conexión
   useEffect(() => {
-    if (enLinea && contenedor) sincronizarTodo(contenedor);
+    if (enLinea && contenedor) void sincronizarTodo(contenedor);
   }, [enLinea, contenedor]);
 
   useEffect(() => {
     if (!contenedor) return;
     const sub = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active' && useRed.getState().enLinea) sincronizarTodo(contenedor);
+      if (estado === 'active' && useRed.getState().enLinea) void sincronizarTodo(contenedor);
     });
     return () => sub.remove();
   }, [contenedor]);

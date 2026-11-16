@@ -16,7 +16,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { crearContenedor } from '@/data/contenedor';
 import { AuthFirebase } from '@/data/firebase/auth';
-import { obtenerFirebase } from '@/data/firebase/client';
+import { obtenerFirebase, reiniciarFirestore } from '@/data/firebase/client';
 import { crearProveedorGoogle } from '@/data/google/proveedorGoogle';
 import { googleWebClientId, variablesFaltantes } from '@/shared/env';
 
@@ -92,7 +92,7 @@ function AppConFirebase({ oscuro }: { oscuro: boolean }) {
       ),
     };
   }, []);
-  useArranque(servicios.auth, crearContenedor);
+  useArranque(servicios.auth, crearContenedor, reiniciarFirestore);
 
   return (
     <ProveedorServicios valor={servicios}>
