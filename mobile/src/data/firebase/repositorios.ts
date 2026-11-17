@@ -38,6 +38,7 @@ import {
   unirPorId,
   type RangoFechas,
 } from '@/domain/rules/reportes';
+import { sellarMovimientoFiado, sellarVenta, type Sesion } from '@/domain/rules/roles';
 import type { OperacionVenta } from '@/domain/rules/venta';
 
 import { aCliente, aConfig, aMovimiento, aProducto, aVenta, deProducto } from '../mappers';
@@ -193,6 +194,12 @@ export class FiadoFirestore implements RemotoFiado {
   constructor(
     private readonly db: Firestore,
     private readonly rutas: Rutas,
+    /**
+     * D-33: autoría (`registradoPor`). Se sella al confirmar, no al encolar: el outbox va por
+     * sesión (`claveLocal`), así que quien confirma es quien lo registró. Las reglas exigen
+     * que el uid sea el de quien escribe.
+     */
+    private readonly sesion?: Sesion | null,
   ) {}
 
   nuevoId(): string {
@@ -204,12 +211,13 @@ export class FiadoFirestore implements RemotoFiado {
     const ref = doc(this.rutas.coleccion('deudas'), op.id);
     return runTransaction(this.db, async (tx) => {
       if ((await tx.get(ref)).exists()) return 'ya-existia' as const;
-      tx.set(ref, {
-        ...op.datos,
-        fecha: serverTimestamp(),
-        ...creadaEn(op.creadaEn),
-        origen: 'movil',
-      });
+      tx.set(
+        ref,
+        sellarMovimientoFiado(
+          { ...op.datos, fecha: serverTimestamp(), ...creadaEn(op.creadaEn), origen: 'movil' },
+          this.sesion,
+        ),
+      );
       return 'escrita' as const;
     });
   }
@@ -251,20 +259,18 @@ export class FiadoFirestore implements RemotoFiado {
   }
 
   async crearCargo(cargo: CargoNuevo): Promise<string> {
-    const ref = await addDoc(this.rutas.coleccion('deudas'), {
-      ...cargo,
-      fecha: serverTimestamp(),
-      origen: 'movil',
-    });
+    const ref = await addDoc(
+      this.rutas.coleccion('deudas'),
+      sellarMovimientoFiado({ ...cargo, fecha: serverTimestamp(), origen: 'movil' }, this.sesion),
+    );
     return ref.id;
   }
 
   async crearAbono(abono: AbonoNuevo): Promise<string> {
-    const ref = await addDoc(this.rutas.coleccion('deudas'), {
-      ...abono,
-      fecha: serverTimestamp(),
-      origen: 'movil',
-    });
+    const ref = await addDoc(
+      this.rutas.coleccion('deudas'),
+      sellarMovimientoFiado({ ...abono, fecha: serverTimestamp(), origen: 'movil' }, this.sesion),
+    );
     return ref.id;
   }
 
@@ -277,6 +283,8 @@ export class VentasFirestore implements RepositorioVentas {
   constructor(
     private readonly db: Firestore,
     private readonly rutas: Rutas,
+    /** D-33: `vendidoPor` en la venta y `registradoPor` en su cargo fiado (ver FiadoFirestore). */
+    private readonly sesion?: Sesion | null,
   ) {}
 
   nuevoId(): string {
@@ -285,6 +293,10 @@ export class VentasFirestore implements RepositorioVentas {
 
   nuevoIdCargo(): string {
     return doc(this.rutas.coleccion('deudas')).id;
+  }
+
+  private stockControlado(v: unknown): boolean {
+    return this.sesion?.rol === 'cajero' ? typeof v === 'number' : v !== null && v !== undefined;
   }
 
   /**
@@ -306,19 +318,30 @@ export class VentasFirestore implements RepositorioVentas {
 
       // `fecha` sigue siendo serverTimestamp (las reglas exigen fecha == request.time);
       // `creadaEn` guarda la hora real del cobro para los reportes (D-26).
-      tx.set(ventaRef, { ...op.venta, fecha: serverTimestamp(), ...creadaEn(op.creadaEn) });
+      tx.set(
+        ventaRef,
+        sellarVenta(
+          { ...op.venta, fecha: serverTimestamp(), ...creadaEn(op.creadaEn) },
+          this.sesion,
+        ),
+      );
       if (op.cargo && op.cargoId) {
-        tx.set(doc(this.rutas.coleccion('deudas'), op.cargoId), {
-          ...op.cargo,
-          fecha: serverTimestamp(),
-          ...creadaEn(op.creadaEn),
-          origen: 'movil',
-        });
+        // Las reglas del cajero exigen que el cargo cuelgue de SU venta fiada (misma
+        // transacción: `getAfter` ve la venta con `vendidoPor`).
+        tx.set(
+          doc(this.rutas.coleccion('deudas'), op.cargoId),
+          sellarMovimientoFiado(
+            { ...op.cargo, fecha: serverTimestamp(), ...creadaEn(op.creadaEn), origen: 'movil' },
+            this.sesion,
+          ),
+        );
       }
       productosRefs.forEach((p, i) => {
         const snap = productos[i];
-        // Igual que la web: stock null (no controlado) no se toca.
-        if (snap?.exists() && snap.get('stock') !== null && snap.get('stock') !== undefined) {
+        // Igual que la web: stock null (no controlado) no se toca. El cajero (D-33) solo puede
+        // bajar un stock numérico: un stock heredado como texto se omite para que las reglas
+        // no rechacen la venta entera.
+        if (snap?.exists() && this.stockControlado(snap.get('stock'))) {
           tx.update(p.ref, { stock: increment(p.delta) });
         }
       });
@@ -351,7 +374,13 @@ export class VentasFirestore implements RepositorioVentas {
       }));
       const productos = await Promise.all(productosRefs.map((p) => tx.get(p.ref)));
 
-      tx.set(ventaRef, { ...op.venta, fecha: serverTimestamp(), ...creadaEn(op.creadaEn) });
+      tx.set(
+        ventaRef,
+        sellarVenta(
+          { ...op.venta, fecha: serverTimestamp(), ...creadaEn(op.creadaEn) },
+          this.sesion,
+        ),
+      );
       productosRefs.forEach((p, i) => {
         const snap = productos[i];
         if (snap?.exists() && snap.get('stock') !== null && snap.get('stock') !== undefined) {

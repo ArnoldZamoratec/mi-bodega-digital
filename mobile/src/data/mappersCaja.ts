@@ -6,7 +6,7 @@ import type {
   TipoMovimientoCaja,
 } from '@/domain/rules/caja';
 
-import { fecha } from './mappers';
+import { conAutoria, fecha } from './mappers';
 
 /** Firestore → dominio para la caja (D-28). Tolerante como `mappers.ts`. */
 
@@ -43,18 +43,19 @@ function aCierre(v: unknown): CierreCaja | undefined {
 
 export function aCaja(id: string, d: Datos): Caja {
   const cierre = aCierre(d.cierre);
-  return {
+  const caja: Caja = {
     id,
     // Cualquier valor raro se trata como cerrada: nunca bloquea abrir una caja nueva.
     estado: d.estado === 'abierta' ? 'abierta' : 'cerrada',
     apertura: aApertura(d.apertura),
     ...(cierre ? { cierre } : {}),
   };
+  return conAutoria(caja, d, ['aperturaCaja', 'cierreCaja']);
 }
 
 export function aMovimientoCaja(cajaId: string, id: string, d: Datos): MovimientoCaja {
   const tipo: TipoMovimientoCaja = d.tipo === 'egreso' ? 'egreso' : 'ingreso';
-  return {
+  const movimiento: MovimientoCaja = {
     id,
     cajaId,
     tipo,
@@ -63,6 +64,7 @@ export function aMovimientoCaja(cajaId: string, id: string, d: Datos): Movimient
     fecha: fecha(d.fecha),
     ...conCreadaEn(d.creadaEn),
   };
+  return conAutoria(movimiento, d, ['movimientoCaja']);
 }
 
 /** JSON guarda las fechas como texto: se reconstruyen al leer la caché del teléfono. */
@@ -78,7 +80,7 @@ const creadaOpcional = (v: unknown): { creadaEn?: Date } => {
 };
 
 export function revivirCaja(c: Caja): Caja {
-  return {
+  const caja: Caja = {
     id: c.id,
     estado: c.estado,
     apertura: {
@@ -98,10 +100,11 @@ export function revivirCaja(c: Caja): Caja {
         }
       : {}),
   };
+  return conAutoria(caja, c as unknown as Datos, ['aperturaCaja', 'cierreCaja']);
 }
 
 export function revivirMovimientoCaja(m: MovimientoCaja): MovimientoCaja {
-  return {
+  const movimiento: MovimientoCaja = {
     id: m.id,
     cajaId: m.cajaId,
     tipo: m.tipo,
@@ -110,4 +113,5 @@ export function revivirMovimientoCaja(m: MovimientoCaja): MovimientoCaja {
     fecha: revivir(m.fecha),
     ...creadaOpcional(m.creadaEn),
   };
+  return conAutoria(movimiento, m as unknown as Datos, ['movimientoCaja']);
 }

@@ -14,7 +14,7 @@ import { ScrollView, StyleSheet, useColorScheme } from 'react-native';
 import { PaperProvider, Text } from 'react-native-paper';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { crearContenedor } from '@/data/contenedor';
+import { crearContenedor, crearServiciosEquipo } from '@/data/contenedor';
 import { AuthFirebase } from '@/data/firebase/auth';
 import { obtenerFirebase, reiniciarFirestore } from '@/data/firebase/client';
 import { crearProveedorGoogle } from '@/data/google/proveedorGoogle';
@@ -85,14 +85,21 @@ function AppConFirebase({ oscuro }: { oscuro: boolean }) {
   const tema = oscuro ? temaOscuro : temaClaro;
   const servicios = useMemo(() => {
     const idCliente = googleWebClientId();
+    const { equipo, cacheSesion } = crearServiciosEquipo();
     return {
       auth: new AuthFirebase(
         obtenerFirebase().auth,
         idCliente ? crearProveedorGoogle(idCliente) : undefined,
       ),
+      equipo,
+      sesion: {
+        equipo,
+        cacheSesion,
+        nombreUsuario: () => obtenerFirebase().auth.currentUser?.displayName ?? '',
+      },
     };
   }, []);
-  useArranque(servicios.auth, crearContenedor, reiniciarFirestore);
+  useArranque(servicios.auth, crearContenedor, reiniciarFirestore, servicios.sesion);
 
   return (
     <ProveedorServicios valor={servicios}>

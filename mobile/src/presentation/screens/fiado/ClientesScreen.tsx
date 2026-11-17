@@ -19,6 +19,7 @@ import { useSaldos, useTema } from '../../hooks/useDerivados';
 import { MULTIPLICADOR_MONTO, useDisposicion } from '../../hooks/useDisposicion';
 import type { PantallaTab } from '../../navigation/tipos';
 import { useDatos } from '../../stores/datosStore';
+import { usePuede } from '../../stores/sesionStore';
 import { colorAvatar } from '../../theme/tema';
 import { BRILLO_INTERIOR, espacio, NUMEROS, radio } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
@@ -34,6 +35,7 @@ import { DetalleCliente } from './ClienteDetalleScreen';
  */
 export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
   const tema = useTema();
+  const puedeEditar = usePuede('editarClientes');
   const clientes = useDatos((s) => s.clientes);
   const movimientosCargando = useDatos((s) => s.movimientos.cargando);
   const saldos = useSaldos();
@@ -178,13 +180,15 @@ export function ClientesScreen({ navigation }: PantallaTab<'Fiado'>) {
                   <Text variant="titleLarge" style={estilos.flex} numberOfLines={2}>
                     {seleccionado.nombre}
                   </Text>
-                  <IconButton
-                    icon="pencil"
-                    onPress={() =>
-                      navigation.navigate('ClienteForm', { clienteId: seleccionado.id })
-                    }
-                    accessibilityLabel="Editar cliente"
-                  />
+                  {puedeEditar ? (
+                    <IconButton
+                      icon="pencil"
+                      onPress={() =>
+                        navigation.navigate('ClienteForm', { clienteId: seleccionado.id })
+                      }
+                      accessibilityLabel="Editar cliente"
+                    />
+                  ) : null}
                 </View>
               }
             />

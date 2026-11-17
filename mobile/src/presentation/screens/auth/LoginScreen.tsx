@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { mensajeDeError } from '@/data/firebase/errores';
 
+import { useIntencionUnirse } from '../../app/controlSesion';
 import { Aparecer } from '../../components/Aparecer';
 import { BotonGoogle } from '../../components/BotonGoogle';
 import { CampoTexto } from '../../components/CampoTexto';
@@ -45,6 +46,8 @@ export function LoginScreen() {
   const [modo, setModo] = useState<Modo>('login');
   const tema = useTema();
   const insets = useSafeAreaInsets();
+  const quiereUnirse = useIntencionUnirse((s) => s.pendiente);
+  const fijarUnirse = useIntencionUnirse((s) => s.fijar);
 
   return (
     <View style={[estilos.flex, { backgroundColor: tema.colors.background }]}>
@@ -115,6 +118,28 @@ export function LoginScreen() {
                 </Text>
               </View>
             ))}
+          </View>
+
+          {/* D-33: el cajero también entra o se registra aquí; el código se escribe después. */}
+          <View style={estilos.invitacion}>
+            {quiereUnirse ? (
+              <Text
+                variant="bodyMedium"
+                style={[estilos.centrado, { color: tema.colors.onSurface }]}
+                testID="login-aviso-codigo"
+              >
+                Primero entra o crea tu cuenta. Después te pediremos el código de invitación.
+              </Text>
+            ) : (
+              <Button
+                icon="ticket-confirmation-outline"
+                onPress={() => fijarUnirse(true)}
+                contentStyle={{ minHeight: TACTIL_MIN }}
+                testID="login-tengo-codigo"
+              >
+                Tengo un código de invitación
+              </Button>
+            )}
           </View>
 
           <View style={estilos.alternar}>
@@ -324,6 +349,7 @@ function FormRegistro() {
 }
 
 const estilos = StyleSheet.create({
+  invitacion: { alignItems: 'center', paddingHorizontal: espacio.md },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, gap: espacio.lg },
   hero: {

@@ -27,7 +27,7 @@ import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { estaEnLinea, requiereConexion } from '../../stores/redStore';
-import { useContenedor } from '../../stores/sesionStore';
+import { useContenedor, usePuede } from '../../stores/sesionStore';
 import { espacio, NUMEROS, radio, TACTIL_MIN } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
 
@@ -55,19 +55,23 @@ const formatoFecha = (f: Date | null) =>
 export function ClienteDetalleScreen({ navigation, route }: PantallaRaiz<'ClienteDetalle'>) {
   const { clienteId } = route.params;
   const nombre = useDatos((s) => s.clientes.datos.find((c) => c.id === clienteId)?.nombre);
+  const puedeEditar = usePuede('editarClientes');
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: nombre ?? 'Cliente',
-      headerRight: () => (
-        <IconButton
-          icon="pencil"
-          onPress={() => navigation.navigate('ClienteForm', { clienteId })}
-          accessibilityLabel="Editar cliente"
-        />
-      ),
+      // D-33: el cajero crea clientes pero no los edita.
+      headerRight: puedeEditar
+        ? () => (
+            <IconButton
+              icon="pencil"
+              onPress={() => navigation.navigate('ClienteForm', { clienteId })}
+              accessibilityLabel="Editar cliente"
+            />
+          )
+        : undefined,
     });
-  }, [navigation, nombre, clienteId]);
+  }, [navigation, nombre, clienteId, puedeEditar]);
 
   return (
     <DetalleCliente
@@ -97,6 +101,8 @@ export function DetalleCliente({
 }) {
   const tema = useTema();
   const estiloDialogo = useEstiloDialogo();
+  const puedeFiar = usePuede('fiarSinVenta');
+  const puedeBorrar = usePuede('borrarMovimientos');
   // A 160 %+ "Fiar" y "Registrar pago" lado a lado se cortan en 360dp: se apilan.
   const { escalaFuente } = useDisposicion();
   const contenedor = useContenedor();
@@ -249,7 +255,7 @@ export function DetalleCliente({
               </Button>
             ) : null}
             {/* El cargo de una venta fiada pendiente se quita anulando la venta. */}
-            {item.pendiente && item.ventaId ? null : (
+            {(item.pendiente && item.ventaId) || !puedeBorrar ? null : (
               <IconButton
                 icon="trash-can-outline"
                 size={20}
@@ -331,20 +337,23 @@ export function DetalleCliente({
               </View>
             </Tarjeta>
             <View style={[estilos.fila, escalaFuente >= 1.6 && estilos.columna]}>
-              <Button
-                // Tonal, no relleno rojo: en M3 un botón rojo sólido se lee como "eliminar".
-                // La acción primaria de la pantalla es cobrar (Registrar pago).
-                mode="contained-tonal"
-                icon="plus"
-                buttonColor={tema.extra.fondoDeuda}
-                textColor={tema.extra.deuda}
-                style={escalaFuente >= 1.6 ? undefined : estilos.flex}
-                contentStyle={estilos.botonAlto}
-                onPress={() => onMovimiento('cargo')}
-                testID="boton-fiar"
-              >
-                Fiar
-              </Button>
+              {/* D-33: fiar sin venta es solo del dueño; el cajero fía cobrando como "Fiado". */}
+              {puedeFiar ? (
+                <Button
+                  // Tonal, no relleno rojo: en M3 un botón rojo sólido se lee como "eliminar".
+                  // La acción primaria de la pantalla es cobrar (Registrar pago).
+                  mode="contained-tonal"
+                  icon="plus"
+                  buttonColor={tema.extra.fondoDeuda}
+                  textColor={tema.extra.deuda}
+                  style={escalaFuente >= 1.6 ? undefined : estilos.flex}
+                  contentStyle={estilos.botonAlto}
+                  onPress={() => onMovimiento('cargo')}
+                  testID="boton-fiar"
+                >
+                  Fiar
+                </Button>
+              ) : null}
               <Button
                 mode="contained"
                 icon="cash-plus"

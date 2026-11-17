@@ -4,9 +4,11 @@ import {
   type NativeStackNavigationOptions,
 } from '@react-navigation/native-stack';
 import { setStatusBarStyle } from 'expo-status-bar';
-import type { ReactNode } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { useEffect, type ReactNode } from 'react';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIntencionUnirse } from '../app/controlSesion';
 import { EstadoVista } from '../components/EstadoVista';
 import { useTema } from '../hooks/useDerivados';
 import { useDisposicion } from '../hooks/useDisposicion';
@@ -14,6 +16,9 @@ import { useReducirMovimiento } from '../hooks/useReducirMovimiento';
 import { AjustesScreen } from '../screens/ajustes/AjustesScreen';
 import { DatosNegocioScreen } from '../screens/ajustes/DatosNegocioScreen';
 import { CajaScreen } from '../screens/caja/CajaScreen';
+import { EquipoScreen } from '../screens/equipo/EquipoScreen';
+import { SinAccesoScreen } from '../screens/equipo/SinAccesoScreen';
+import { UnirseEquipoScreen } from '../screens/equipo/UnirseEquipoScreen';
 import { CobranzaScreen } from '../screens/fiado/CobranzaScreen';
 import { HistorialVentasScreen } from '../screens/ventas/HistorialVentasScreen';
 import { VentasPendientesScreen } from '../screens/ajustes/VentasPendientesScreen';
@@ -30,7 +35,7 @@ import { PosScreen } from '../screens/pos/PosScreen';
 import { ReportesScreen } from '../screens/reportes/ReportesScreen';
 import { useCarrito } from '../stores/carritoStore';
 import { useCromoInferior } from '../stores/cromoInferiorStore';
-import { useSesion } from '../stores/sesionStore';
+import { usePuede, useSesion } from '../stores/sesionStore';
 import { familia } from '../theme/tema';
 import { BarraPestanas } from './BarraPestanas';
 import { ICONOS_PESTANAS } from './iconosPestanas';
@@ -83,6 +88,17 @@ function PestanasPrincipales() {
   // D-30: barra inferior en compacta/media; riel lateral (tabBarPosition 'left', soportado
   // por @react-navigation/bottom-tabs v7) en expandida: tablets horizontales y POS.
   const riel = useDisposicion().dosPaneles;
+  // D-33: el cajero no ve reportes ni ganancias (no es secreto en las reglas: solo se oculta).
+  const verReportes = usePuede('verReportes');
+  const navigation = useNavigation();
+  const quiereUnirse = useIntencionUnirse((s) => s.pendiente);
+
+  // "Tengo un código de invitación" tocado en el login: ya con sesión, se abre la pantalla.
+  useEffect(() => {
+    if (!quiereUnirse) return;
+    useIntencionUnirse.getState().fijar(false);
+    navigation.navigate('UnirseEquipo');
+  }, [quiereUnirse, navigation]);
 
   return (
     <Tabs.Navigator
@@ -109,7 +125,7 @@ function PestanasPrincipales() {
       <Tabs.Screen name="Vender" component={PosScreen} options={{ tabBarLabel: 'Vender' }} />
       <Tabs.Screen name="Inventario" component={InventarioScreen} />
       <Tabs.Screen name="Fiado" component={ClientesScreen} />
-      <Tabs.Screen name="Reportes" component={ReportesScreen} />
+      {verReportes ? <Tabs.Screen name="Reportes" component={ReportesScreen} /> : null}
       <Tabs.Screen name="Ajustes" component={AjustesScreen} />
     </Tabs.Navigator>
   );
@@ -151,6 +167,12 @@ export function Navegacion() {
         <Pila.Screen
           name="Login"
           component={LoginScreen}
+          options={{ headerShown: false, animation: mover('fade') }}
+        />
+      ) : estado === 'sin-acceso' ? (
+        <Pila.Screen
+          name="SinAcceso"
+          component={SinAccesoScreen}
           options={{ headerShown: false, animation: mover('fade') }}
         />
       ) : (
@@ -198,6 +220,12 @@ export function Navegacion() {
           />
           <Pila.Screen name="Cobranza" component={CobranzaScreen} options={{ title: 'Cobranza' }} />
           <Pila.Screen name="Caja" component={CajaScreen} options={{ title: 'Caja' }} />
+          <Pila.Screen name="Equipo" component={EquipoScreen} options={{ title: 'Equipo' }} />
+          <Pila.Screen
+            name="UnirseEquipo"
+            component={UnirseEquipoScreen}
+            options={{ animation: mover(TRANSICION.tarea) }}
+          />
           <Pila.Screen
             name="DatosNegocio"
             component={DatosNegocioScreen}

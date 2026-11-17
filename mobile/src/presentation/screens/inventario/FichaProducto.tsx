@@ -23,7 +23,8 @@ export function FichaProducto({
   onEditar,
 }: {
   producto: Producto;
-  onEditar: () => void;
+  /** Sin función (cajero, D-33) la ficha es solo de lectura. */
+  onEditar?: () => void;
 }) {
   const tema = useTema();
   const avatar = colorAvatar(producto.nombre, tema.dark);
@@ -76,18 +77,26 @@ export function FichaProducto({
         <Dato etiqueta="Unidades" valor={producto.stock === null ? '—' : String(producto.stock)} />
         <Dato etiqueta="Valor en stock" valor={formatearSoles(valorEnStock)} />
         <Dato etiqueta="Código de barras" valor={producto.codigoBarras || 'Sin código'} />
-        <Button
-          mode="contained"
-          icon="pencil"
-          onPress={onEditar}
-          contentStyle={estilos.boton}
-          testID="ficha-editar"
-        >
-          Editar producto
-        </Button>
-        <Text variant="bodySmall" style={tenue}>
-          Para eliminarlo, ábrelo con Editar producto.
-        </Text>
+        {onEditar ? (
+          <>
+            <Button
+              mode="contained"
+              icon="pencil"
+              onPress={onEditar}
+              contentStyle={estilos.boton}
+              testID="ficha-editar"
+            >
+              Editar producto
+            </Button>
+            <Text variant="bodySmall" style={tenue}>
+              Para eliminarlo, ábrelo con Editar producto.
+            </Text>
+          </>
+        ) : (
+          <Text variant="bodySmall" style={tenue}>
+            Solo el dueño puede cambiar precios y productos.
+          </Text>
+        )}
       </Tarjeta>
     </ScrollView>
   );

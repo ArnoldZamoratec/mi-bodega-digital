@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { totalCarrito, unidadesEnCarrito } from '@/domain/rules/carrito';
 import { formatearSoles } from '@/domain/rules/dinero';
 import { buscarPorCodigo } from '@/domain/rules/productos';
+import { puedeEditarProductos } from '@/domain/rules/roles';
 
 import { confirmar } from '../../components/Confirmar';
 import { EstadoVista } from '../../components/EstadoVista';
@@ -18,6 +19,7 @@ import type { PantallaRaiz } from '../../navigation/tipos';
 import { haptica } from '../../services/haptica';
 import { useCarrito } from '../../stores/carritoStore';
 import { useCodigoEscaneado } from '../../stores/escanerStore';
+import { useSesion } from '../../stores/sesionStore';
 import { ambar } from '../../theme/paleta';
 import { espacio, radio } from '../../theme/tokens';
 
@@ -100,6 +102,11 @@ export function EscanerScreen({ navigation, route }: PantallaRaiz<'Escaner'>) {
     }
 
     haptica.advertencia();
+    // D-33: el cajero no crea productos: solo se le avisa.
+    if (!puedeEditarProductos(useSesion.getState().sesion)) {
+      setUltimo(`Código ${codigo} sin producto. Avísale al dueño.`);
+      return;
+    }
     setPausado(true);
     const crear = await confirmar({
       titulo: 'Código no registrado',

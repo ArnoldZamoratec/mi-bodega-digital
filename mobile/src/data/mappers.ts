@@ -11,6 +11,7 @@ import {
   type Producto,
   type Venta,
 } from '@/domain/entities';
+import { CAMPOS_AUTORIA, type TipoAutoria } from '@/domain/rules/roles';
 
 /**
  * Conversión Firestore → dominio. Funciones puras y **tolerantes**: los documentos
@@ -49,6 +50,22 @@ const conCreadaEn = (v: unknown): { creadaEn?: Date } => {
   const f = fecha(v);
   return f && !Number.isNaN(f.getTime()) ? { creadaEn: f } : {};
 };
+
+/**
+ * D-33: copia los campos de autoría (`vendidoPor`, `cerradaPor`…) tal cual, solo si son
+ * texto. Las entidades del core no los declaran; la interfaz los lee con `leerAutoria`.
+ * Documentos viejos y de la web no los tienen y quedan igual.
+ */
+export function conAutoria<T extends object>(obj: T, d: Datos, tipos: readonly TipoAutoria[]): T {
+  const extra: Record<string, string> = {};
+  for (const tipo of tipos) {
+    for (const campo of [CAMPOS_AUTORIA[tipo].uid, CAMPOS_AUTORIA[tipo].nombre]) {
+      const v = d[campo];
+      if (typeof v === 'string' && v) extra[campo] = v;
+    }
+  }
+  return Object.keys(extra).length ? Object.assign(obj, extra) : obj;
+}
 
 const metodoVenta = (v: unknown): MetodoPagoVenta =>
   METODOS_PAGO_VENTA.includes(v as MetodoPagoVenta) ? (v as MetodoPagoVenta) : 'Efectivo';
@@ -104,7 +121,7 @@ export function aVenta(id: string, d: Datos): Venta {
   const items = Array.isArray(d.items)
     ? d.items.map(aItem).filter((i): i is ItemVenta => i !== null)
     : [];
-  return {
+  const venta: Venta = {
     id,
     items,
     total: numero(d.total),
@@ -115,11 +132,12 @@ export function aVenta(id: string, d: Datos): Venta {
     ...(typeof d.anulaA === 'string' && d.anulaA ? { anulaA: d.anulaA } : {}),
     ...(typeof d.motivoAnulacion === 'string' ? { motivoAnulacion: d.motivoAnulacion } : {}),
   };
+  return conAutoria(venta, d, ['venta']);
 }
 
 export function aMovimiento(id: string, d: Datos): MovimientoFiado {
   const metodoPago = metodoAbono(d.metodoPago);
-  return {
+  const movimiento: MovimientoFiado = {
     id,
     clienteId: texto(d.clienteId),
     monto: numero(d.monto),
@@ -131,6 +149,7 @@ export function aMovimiento(id: string, d: Datos): MovimientoFiado {
     ...(metodoPago ? { metodoPago } : {}),
     ...(typeof d.deudaOrigenId === 'string' ? { deudaOrigenId: d.deudaOrigenId } : {}),
   };
+  return conAutoria(movimiento, d, ['movimientoFiado']);
 }
 
 export function aConfig(d: Datos | undefined): ConfigNegocio {

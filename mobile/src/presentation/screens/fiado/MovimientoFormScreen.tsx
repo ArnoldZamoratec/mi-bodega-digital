@@ -11,6 +11,7 @@ import { calcularSaldo, cargoMasAntiguoPendiente } from '@/domain/rules/fiado';
 import { registrarAbono, registrarCargo } from '@/domain/usecases/fiado';
 
 import { CampoTexto } from '../../components/CampoTexto';
+import { EstadoVista } from '../../components/EstadoVista';
 import { PantallaFormulario, SeccionFormulario } from '../../components/PantallaFormulario';
 import { Tarjeta } from '../../components/Tarjeta';
 import { esquemaMovimiento, type DatosMovimiento } from '../../forms/esquemas';
@@ -20,7 +21,7 @@ import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { estaEnLinea } from '../../stores/redStore';
-import { useContenedor } from '../../stores/sesionStore';
+import { useContenedor, usePuede } from '../../stores/sesionStore';
 import { espacio } from '../../theme/tokens';
 
 /**
@@ -59,6 +60,8 @@ export function MovimientoFormScreen({ navigation, route }: PantallaRaiz<'Movimi
   }, [navigation]);
 
   const esCargo = tipo === 'cargo';
+  // D-33: el cajero no fía sin venta (las reglas lo rechazarían al sincronizar).
+  const puedeFiar = usePuede('fiarSinVenta');
   const tono = esCargo
     ? { color: tema.extra.deuda, fondo: tema.extra.fondoDeuda }
     : { color: tema.colors.primary, fondo: tema.colors.secondaryContainer };
@@ -92,6 +95,19 @@ export function MovimientoFormScreen({ navigation, route }: PantallaRaiz<'Movimi
       );
     }
   });
+
+  if (esCargo && !puedeFiar) {
+    return (
+      <EstadoVista
+        tipo="vacio"
+        icono="account-lock-outline"
+        titulo="Solo el dueño puede fiar sin venta"
+        mensaje="Para fiar, cobra la venta y elige Fiado como forma de pago."
+        accion={{ etiqueta: 'Volver', onPress: () => navigation.goBack() }}
+        testID="fiar-sin-permiso"
+      />
+    );
+  }
 
   return (
     <PantallaFormulario

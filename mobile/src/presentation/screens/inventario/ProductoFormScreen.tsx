@@ -10,6 +10,7 @@ import type { ProductoDatos } from '@/domain/entities';
 import { parsearSoles } from '@/domain/rules/dinero';
 
 import { CampoTexto } from '../../components/CampoTexto';
+import { EstadoVista } from '../../components/EstadoVista';
 import { confirmar } from '../../components/Confirmar';
 import { PantallaFormulario, SeccionFormulario } from '../../components/PantallaFormulario';
 import { esquemaProducto, type DatosProducto } from '../../forms/esquemas';
@@ -20,7 +21,7 @@ import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { useCodigoEscaneado } from '../../stores/escanerStore';
 import { requiereConexion } from '../../stores/redStore';
-import { useContenedor } from '../../stores/sesionStore';
+import { useContenedor, usePuede } from '../../stores/sesionStore';
 import { espacio, radio, TACTIL_MIN } from '../../theme/tokens';
 
 /**
@@ -35,6 +36,7 @@ export function ProductoFormScreen({ navigation, route }: PantallaRaiz<'Producto
   const todos = useDatos((s) => s.productos.datos);
   const codigoEscaneado = useCodigoEscaneado((s) => s.codigo);
   const limpiarCodigo = useCodigoEscaneado((s) => s.fijar);
+  const puedeEditar = usePuede('editarProductos');
 
   const { control, handleSubmit, setValue, setError, formState, setFocus } = useForm<DatosProducto>(
     {
@@ -109,6 +111,20 @@ export function ProductoFormScreen({ navigation, route }: PantallaRaiz<'Producto
       avisar(mensajeDeError(e, 'Error al eliminar'), 'error');
     }
   };
+
+  // D-33: crear o editar productos es del dueño (las reglas lo exigen).
+  if (!puedeEditar) {
+    return (
+      <EstadoVista
+        tipo="vacio"
+        icono="account-lock-outline"
+        titulo="Solo el dueño puede cambiar productos"
+        mensaje="Puedes ver precios y stock en Inventario y vender con normalidad."
+        accion={{ etiqueta: 'Volver', onPress: () => navigation.goBack() }}
+        testID="producto-sin-permiso"
+      />
+    );
+  }
 
   return (
     <PantallaFormulario

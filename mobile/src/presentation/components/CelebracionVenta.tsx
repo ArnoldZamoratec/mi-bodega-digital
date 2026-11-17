@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mensajeDeError } from '@/data/firebase/errores';
 import { tieneProductos } from '@/domain/rules/carrito';
 import { formatearSoles } from '@/domain/rules/dinero';
+import { puedeAnularVenta } from '@/domain/rules/roles';
 import { deshacerVenta } from '@/domain/usecases/anularVenta';
 
 import { useTema } from '../hooks/useDerivados';
@@ -96,6 +97,14 @@ function Contenido({ venta, onCerrar }: { venta: VentaCelebrada; onCerrar: () =>
     if (!op || !c) return;
     onCerrar();
     try {
+      // D-33: el cajero no anula. Solo puede deshacer mientras la venta sigue en el teléfono.
+      if (!puedeAnularVenta(useSesion.getState().sesion)) {
+        const enCola = (await c.cola.listar()).some((e) => e.operacion.ventaId === op.ventaId);
+        if (!enCola) {
+          avisar('Esta venta ya se envió. Pídele al dueño que la anule desde Ventas.', 'info');
+          return;
+        }
+      }
       await deshacerVenta({ ventas: c.ventas, cola: c.cola }, op);
       useCarrito.setState({
         items: op.venta.items,

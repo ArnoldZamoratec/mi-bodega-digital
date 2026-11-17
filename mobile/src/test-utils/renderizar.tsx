@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import type { EquipoMovil } from '@/data/firebase/equipoFirestore';
 import type { ServicioAuth } from '@/domain/ports';
 import { ProveedorServicios } from '@/presentation/servicios';
 import { temaClaro } from '@/presentation/theme/tema';
@@ -25,11 +26,16 @@ export function authFalso(parcial: Partial<ServicioAuth> = {}): jest.Mocked<Serv
   } as jest.Mocked<ServicioAuth>;
 }
 
-export async function renderizar(ui: ReactElement, auth: ServicioAuth = authFalso()) {
+export async function renderizar(
+  ui: ReactElement,
+  auth: ServicioAuth = authFalso(),
+  /** D-33: equipo en memoria para las pantallas de cajeros. */
+  equipo?: EquipoMovil,
+) {
   return await render(
     <SafeAreaProvider initialMetrics={metricas}>
       <PaperProvider theme={temaClaro}>
-        <ProveedorServicios valor={{ auth }}>{ui}</ProveedorServicios>
+        <ProveedorServicios valor={{ auth, equipo }}>{ui}</ProveedorServicios>
       </PaperProvider>
     </SafeAreaProvider>,
   );

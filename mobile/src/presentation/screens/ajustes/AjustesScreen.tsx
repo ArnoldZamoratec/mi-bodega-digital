@@ -19,7 +19,7 @@ import { prepararNotificaciones } from '../../services/notificaciones';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { requiereConexion } from '../../stores/redStore';
-import { useSesion } from '../../stores/sesionStore';
+import { usePuede, useSesion, useSesionRol } from '../../stores/sesionStore';
 import { useTemaStore, type PreferenciaTema } from '../../stores/temaStore';
 import { NOMBRE_MARCA } from '../../theme/tema';
 import { useServicios } from '../../servicios';
@@ -36,6 +36,12 @@ export function AjustesScreen({ navigation }: PantallaTab<'Ajustes'>) {
   const pendientes = useDatos((s) => s.pendientes);
   const preferencia = useTemaStore((s) => s.preferencia);
   const fijarTema = useTemaStore((s) => s.fijar);
+  // D-33: lo que ve cada rol sale de la tabla de permisos del core.
+  const sesion = useSesionRol();
+  const editarConfig = usePuede('editarConfig');
+  const gestionarEquipo = usePuede('gestionarEquipo');
+  const usarCaja = usePuede('usarCaja');
+  const esDueno = sesion?.rol !== 'cajero';
 
   const guardar = async (cambios: Partial<ConfigNegocio>) => {
     if (!contenedor || !requiereConexion()) return;
@@ -110,29 +116,45 @@ export function AjustesScreen({ navigation }: PantallaTab<'Ajustes'>) {
 
       <View style={estilos.contenido}>
         <Grupo titulo="Negocio">
-          <List.Item
-            titleNumberOfLines={3}
-            descriptionNumberOfLines={3}
-            title="Caja"
-            description="Abre y cierra tu caja: cuánto efectivo debería haber"
-            left={() => <IconoFila nombre="cash-register" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
-            onPress={() => navigation.navigate('Caja')}
-            testID="ajustes-caja"
-          />
-          <List.Item
-            titleNumberOfLines={3}
-            descriptionNumberOfLines={3}
-            title="Datos del negocio"
-            description={
-              [config.ruc && `RUC ${config.ruc}`, config.direccion].filter(Boolean).join(' · ') ||
-              'Toca para completar los datos'
-            }
-            left={() => <IconoFila nombre="storefront-outline" />}
-            right={(p) => <List.Icon {...p} icon="chevron-right" />}
-            onPress={() => navigation.navigate('DatosNegocio')}
-            testID="ajustes-negocio"
-          />
+          {usarCaja ? (
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Caja"
+              description="Abre y cierra tu caja: cuánto efectivo debería haber"
+              left={() => <IconoFila nombre="cash-register" />}
+              right={(p) => <List.Icon {...p} icon="chevron-right" />}
+              onPress={() => navigation.navigate('Caja')}
+              testID="ajustes-caja"
+            />
+          ) : null}
+          {editarConfig ? (
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Datos del negocio"
+              description={
+                [config.ruc && `RUC ${config.ruc}`, config.direccion].filter(Boolean).join(' · ') ||
+                'Toca para completar los datos'
+              }
+              left={() => <IconoFila nombre="storefront-outline" />}
+              right={(p) => <List.Icon {...p} icon="chevron-right" />}
+              onPress={() => navigation.navigate('DatosNegocio')}
+              testID="ajustes-negocio"
+            />
+          ) : null}
+          {gestionarEquipo ? (
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Equipo"
+              description="Invita cajeros y mira quién vendió cada cosa"
+              left={() => <IconoFila nombre="account-group-outline" />}
+              right={(p) => <List.Icon {...p} icon="chevron-right" />}
+              onPress={() => navigation.navigate('Equipo')}
+              testID="ajustes-equipo"
+            />
+          ) : null}
           <List.Item
             titleNumberOfLines={3}
             descriptionNumberOfLines={3}
@@ -208,52 +230,67 @@ export function AjustesScreen({ navigation }: PantallaTab<'Ajustes'>) {
           </View>
         </View>
 
-        <Grupo titulo="Notificaciones">
-          <List.Item
-            titleNumberOfLines={3}
-            descriptionNumberOfLines={3}
-            title="Avisar stock bajo"
-            description="Cuando un producto llega a 5 unidades o menos"
-            left={() => <IconoFila nombre="package-down" tono="advertencia" />}
-            right={() => (
-              <Switch
-                value={config.alertasStockBajo}
-                onValueChange={(v) => void alternarNotificaciones('stock', v)}
-              />
-            )}
-          />
-          <List.Item
-            titleNumberOfLines={3}
-            descriptionNumberOfLines={3}
-            title="Recordatorio de fiados vencidos"
-            description={
-              config.horaRecordatorioFiado === null
-                ? 'Desactivado'
-                : `Diario a las ${config.horaRecordatorioFiado}:00 · deudas de más de ${config.diasVencimientoFiado} días`
-            }
-            left={() => <IconoFila nombre="bell-ring-outline" />}
-            right={() => (
-              <Switch
-                value={config.horaRecordatorioFiado !== null}
-                onValueChange={(v) => void alternarNotificaciones('fiado', v)}
-              />
-            )}
-            onPress={
-              config.horaRecordatorioFiado === null
-                ? undefined
-                : () => void guardar({ horaRecordatorioFiado: siguienteHora() })
-            }
-          />
-        </Grupo>
+        {editarConfig ? (
+          <Grupo titulo="Notificaciones">
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Avisar stock bajo"
+              description="Cuando un producto llega a 5 unidades o menos"
+              left={() => <IconoFila nombre="package-down" tono="advertencia" />}
+              right={() => (
+                <Switch
+                  value={config.alertasStockBajo}
+                  onValueChange={(v) => void alternarNotificaciones('stock', v)}
+                />
+              )}
+            />
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Recordatorio de fiados vencidos"
+              description={
+                config.horaRecordatorioFiado === null
+                  ? 'Desactivado'
+                  : `Diario a las ${config.horaRecordatorioFiado}:00 · deudas de más de ${config.diasVencimientoFiado} días`
+              }
+              left={() => <IconoFila nombre="bell-ring-outline" />}
+              right={() => (
+                <Switch
+                  value={config.horaRecordatorioFiado !== null}
+                  onValueChange={(v) => void alternarNotificaciones('fiado', v)}
+                />
+              )}
+              onPress={
+                config.horaRecordatorioFiado === null
+                  ? undefined
+                  : () => void guardar({ horaRecordatorioFiado: siguienteHora() })
+              }
+            />
+          </Grupo>
+        ) : null}
 
         <Grupo titulo="Cuenta">
           <List.Item
             titleNumberOfLines={3}
             descriptionNumberOfLines={3}
             title={usuario?.email ?? ''}
-            description="Dueño"
+            description={esDueno ? 'Dueño' : `Cajero de ${config.nombre} · ${sesion?.nombre ?? ''}`}
             left={() => <IconoFila nombre="account-outline" />}
+            testID="ajustes-rol"
           />
+          {esDueno ? (
+            <List.Item
+              titleNumberOfLines={3}
+              descriptionNumberOfLines={3}
+              title="Tengo un código de invitación"
+              description="Para vender en la bodega de otra persona"
+              left={() => <IconoFila nombre="ticket-confirmation-outline" />}
+              right={(p) => <List.Icon {...p} icon="chevron-right" />}
+              onPress={() => navigation.navigate('UnirseEquipo')}
+              testID="ajustes-unirse"
+            />
+          ) : null}
           <List.Item
             titleNumberOfLines={3}
             descriptionNumberOfLines={3}

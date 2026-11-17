@@ -32,6 +32,7 @@ import type { PantallaTab } from '../../navigation/tipos';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { useRed } from '../../stores/redStore';
+import { usePuede } from '../../stores/sesionStore';
 import { colorAvatar } from '../../theme/tema';
 import { BRILLO_INTERIOR, espacio, radio } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
@@ -71,10 +72,15 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
     : undefined;
 
   // En dos paneles el toque elige (la ficha ofrece "Editar"); en teléfono abre el formulario.
+  // D-33: el cajero ve el catálogo (precio y stock) pero no lo cambia.
+  const puedeEditar = usePuede('editarProductos');
   const editar = useCallback(
-    (p: Producto) =>
-      dosPaneles ? setElegido(p.id) : navigation.navigate('ProductoForm', { productoId: p.id }),
-    [navigation, dosPaneles],
+    (p: Producto) => {
+      if (dosPaneles) setElegido(p.id);
+      else if (puedeEditar) navigation.navigate('ProductoForm', { productoId: p.id });
+      else avisar('Solo el dueño puede cambiar precios y productos.', 'info');
+    },
+    [navigation, dosPaneles, puedeEditar],
   );
 
   let contenido;
@@ -94,11 +100,19 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
         tipo="vacio"
         icono="package-variant-plus"
         titulo="No hay productos registrados"
-        mensaje="Agrega lo que vendes con su precio y stock. Puedes escanear el código de barras."
-        accion={{
-          etiqueta: 'Agregar mi primer producto',
-          onPress: () => navigation.navigate('ProductoForm'),
-        }}
+        mensaje={
+          puedeEditar
+            ? 'Agrega lo que vendes con su precio y stock. Puedes escanear el código de barras.'
+            : 'El dueño aún no agregó productos. Mientras tanto puedes cobrar con monto libre.'
+        }
+        accion={
+          puedeEditar
+            ? {
+                etiqueta: 'Agregar mi primer producto',
+                onPress: () => navigation.navigate('ProductoForm'),
+              }
+            : undefined
+        }
       />
     );
   else
@@ -164,36 +178,42 @@ export function InventarioScreen({ navigation }: PantallaTab<'Inventario'>) {
           detalle={
             <FichaProducto
               producto={seleccionado}
-              onEditar={() => navigation.navigate('ProductoForm', { productoId: seleccionado.id })}
+              onEditar={
+                puedeEditar
+                  ? () => navigation.navigate('ProductoForm', { productoId: seleccionado.id })
+                  : undefined
+              }
             />
           }
         />
       ) : (
         contenido
       )}
-      <FAB
-        icon="plus"
-        label="Producto"
-        color={tema.colors.onPrimary}
-        style={[
-          estilos.fab,
-          {
-            backgroundColor: tema.colors.primary,
-            boxShadow: `${BRILLO_INTERIOR}, ${tema.extra.sombra[3]}`,
-          },
-        ]}
-        // Antes se deshabilitaba sin explicar por qué. Ahora se explica al tocarlo.
-        onPress={() =>
-          enLinea
-            ? navigation.navigate('ProductoForm')
-            : avisar(
-                'Para agregar productos necesitas internet. Puedes seguir vendiendo sin conexión.',
-                'info',
-              )
-        }
-        accessibilityLabel="Nuevo producto"
-        testID="fab-nuevo-producto"
-      />
+      {puedeEditar ? (
+        <FAB
+          icon="plus"
+          label="Producto"
+          color={tema.colors.onPrimary}
+          style={[
+            estilos.fab,
+            {
+              backgroundColor: tema.colors.primary,
+              boxShadow: `${BRILLO_INTERIOR}, ${tema.extra.sombra[3]}`,
+            },
+          ]}
+          // Antes se deshabilitaba sin explicar por qué. Ahora se explica al tocarlo.
+          onPress={() =>
+            enLinea
+              ? navigation.navigate('ProductoForm')
+              : avisar(
+                  'Para agregar productos necesitas internet. Puedes seguir vendiendo sin conexión.',
+                  'info',
+                )
+          }
+          accessibilityLabel="Nuevo producto"
+          testID="fab-nuevo-producto"
+        />
+      ) : null}
     </View>
   );
 }

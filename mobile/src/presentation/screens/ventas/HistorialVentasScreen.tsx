@@ -16,6 +16,7 @@ import { formatearSoles, sumarSoles } from '@/domain/rules/dinero';
 import { fechaEfectiva, rangoPredefinido, type RangoFechas } from '@/domain/rules/reportes';
 import { anularVenta } from '@/domain/usecases/anularVenta';
 
+import { textoAutoria } from '../../autoria';
 import { EntradaLista } from '../../components/Aparecer';
 import { BannerConexion } from '../../components/BannerConexion';
 import { EstadoVista } from '../../components/EstadoVista';
@@ -28,7 +29,7 @@ import { haptica } from '../../services/haptica';
 import { avisar } from '../../stores/avisosStore';
 import { useDatos } from '../../stores/datosStore';
 import { requiereConexion } from '../../stores/redStore';
-import { useContenedor } from '../../stores/sesionStore';
+import { useContenedor, usePuede } from '../../stores/sesionStore';
 import { espacio, NUMEROS, radio, TACTIL_MIN } from '../../theme/tokens';
 import { ANCHO_CONTENIDO } from '../../theme/ventana';
 
@@ -73,6 +74,7 @@ export function HistorialVentasScreen({ navigation }: PantallaRaiz<'HistorialVen
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const [detalle, setDetalle] = useState<Venta | null>(null);
+  const puedeAnular = usePuede('anularVenta');
 
   useEffect(
     () =>
@@ -124,7 +126,11 @@ export function HistorialVentasScreen({ navigation }: PantallaRaiz<'HistorialVen
         tipo="vacio"
         icono="receipt-text-outline"
         titulo="Sin ventas en este periodo"
-        mensaje="Las ventas que cobres aparecerán aquí y podrás anularlas si te equivocas."
+        mensaje={
+          puedeAnular
+            ? 'Las ventas que cobres aparecerán aquí y podrás anularlas si te equivocas.'
+            : 'Las ventas que cobres aparecerán aquí.'
+        }
       />
     );
   else
@@ -156,7 +162,7 @@ export function HistorialVentasScreen({ navigation }: PantallaRaiz<'HistorialVen
                   {pendientesDelRango.length === 1
                     ? '1 venta guardada en el teléfono'
                     : `${pendientesDelRango.length} ventas guardadas en el teléfono`}
-                  {' · aún no se pueden anular aquí'}
+                  {puedeAnular ? ' · aún no se pueden anular aquí' : ''}
                 </Text>
                 <MaterialCommunityIcons
                   name="chevron-right"
@@ -216,6 +222,16 @@ export function HistorialVentasScreen({ navigation }: PantallaRaiz<'HistorialVen
                   >
                     {resumenItems(item)}
                   </Text>
+                  {textoAutoria('venta', item, 'Vendió') ? (
+                    <Text
+                      variant="labelSmall"
+                      numberOfLines={1}
+                      style={{ color: tema.colors.onSurfaceVariant }}
+                      testID={`autor-${item.id}`}
+                    >
+                      {textoAutoria('venta', item, 'Vendió')}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={estilos.derecha}>
                   <Text variant="labelLarge" style={NUMEROS}>
@@ -307,6 +323,9 @@ function DetalleVenta({
   const [anulando, setAnulando] = useState(false);
   const [motivo, setMotivo] = useState<MotivoAnulacion | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // D-33: anular es solo del dueño (las reglas lo exigen; la interfaz lo refleja).
+  const puedeAnular = usePuede('anularVenta');
+  const autor = textoAutoria('venta', venta, 'Vendió');
 
   const cerrar = () => {
     setAnulando(false);
@@ -334,6 +353,15 @@ function DetalleVenta({
                       {venta.metodoDePago}
                       {cliente ? ` · ${cliente}` : ''}
                     </Text>
+                    {autor ? (
+                      <Text
+                        variant="bodyMedium"
+                        style={{ color: tema.colors.onSurfaceVariant }}
+                        testID="detalle-autor"
+                      >
+                        {autor}
+                      </Text>
+                    ) : null}
                     {venta.items.map((i, k) => (
                       <View key={`${i.id}-${k}`} style={estilos.item}>
                         <Text variant="bodyLarge" style={estilos.flex} numberOfLines={2}>
@@ -410,7 +438,7 @@ function DetalleVenta({
             <Dialog.Actions style={estilos.acciones}>
               {!anulando ? (
                 <>
-                  {!anulada ? (
+                  {!anulada && puedeAnular ? (
                     <Button
                       textColor={tema.extra.deuda}
                       onPress={() => setAnulando(true)}

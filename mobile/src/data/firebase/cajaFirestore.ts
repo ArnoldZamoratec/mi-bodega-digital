@@ -12,6 +12,12 @@ import type { AlError, Cancelar, ResultadoConfirmacion } from '@/domain/ports';
 import type { RemotoCaja } from '@/domain/portsCaja';
 import type { RepositorioRecordatorios } from '@/domain/portsCobranza';
 import type { Caja, MovimientoCaja, OperacionCaja } from '@/domain/rules/caja';
+import {
+  sellarAperturaCaja,
+  sellarCierreCaja,
+  sellarMovimientoCaja,
+  type Sesion,
+} from '@/domain/rules/roles';
 
 import { aCaja, aMovimientoCaja } from '../mappersCaja';
 import { escucharConfirmado } from './repositorios';
@@ -28,6 +34,11 @@ export class CajaFirestore implements RemotoCaja {
   constructor(
     private readonly db: Firestore,
     private readonly rutas: Rutas,
+    /**
+     * D-33: `abiertaPor`, `cerradaPor` y `registradoPor`. Se sellan al confirmar (el outbox de
+     * caja es por sesión, así que quien confirma es quien operó).
+     */
+    private readonly sesion?: Sesion | null,
   ) {}
 
   private cajas() {
@@ -53,18 +64,30 @@ export class CajaFirestore implements RemotoCaja {
       switch (op.tipo) {
         case 'abrir': {
           if ((await tx.get(cajaRef)).exists()) return 'ya-existia' as const;
-          tx.set(cajaRef, {
-            estado: 'abierta',
-            // `fecha` del servidor (las reglas exigen request.time) y la hora real (D-26).
-            apertura: { monto: op.monto, fecha: serverTimestamp(), creadaEn },
-            origen: 'movil',
-          });
+          tx.set(
+            cajaRef,
+            sellarAperturaCaja(
+              {
+                estado: 'abierta',
+                // `fecha` del servidor (las reglas exigen request.time) y la hora real (D-26).
+                apertura: { monto: op.monto, fecha: serverTimestamp(), creadaEn },
+                origen: 'movil',
+              },
+              this.sesion,
+            ),
+          );
           return 'escrita' as const;
         }
         case 'movimiento': {
           const ref = doc(this.movimientos(op.cajaId), op.id);
           if ((await tx.get(ref)).exists()) return 'ya-existia' as const;
-          tx.set(ref, { ...op.movimiento, fecha: serverTimestamp(), creadaEn });
+          tx.set(
+            ref,
+            sellarMovimientoCaja(
+              { ...op.movimiento, fecha: serverTimestamp(), creadaEn },
+              this.sesion,
+            ),
+          );
           return 'escrita' as const;
         }
         case 'cerrar': {
@@ -78,10 +101,13 @@ export class CajaFirestore implements RemotoCaja {
           }
           // Ya cerrada (reintento): las reglas no permiten tocar una caja cerrada.
           if (snap.exists() && snap.get('estado') === 'cerrada') return 'ya-existia' as const;
-          tx.update(cajaRef, {
-            estado: 'cerrada',
-            cierre: { ...op.cierre, fecha: serverTimestamp(), creadaEn },
-          });
+          tx.update(
+            cajaRef,
+            sellarCierreCaja(
+              { estado: 'cerrada', cierre: { ...op.cierre, fecha: serverTimestamp(), creadaEn } },
+              this.sesion,
+            ),
+          );
           return 'escrita' as const;
         }
       }

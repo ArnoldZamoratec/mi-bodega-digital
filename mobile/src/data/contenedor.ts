@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Auth } from 'firebase/auth';
 
 import type {
   ColaMovimientos,
@@ -14,12 +13,15 @@ import type { RepositorioCaja } from '@/domain/portsCaja';
 import type { RepositorioRecordatorios } from '@/domain/portsCobranza';
 import type { OperacionCaja } from '@/domain/rules/caja';
 import type { OperacionMovimiento } from '@/domain/rules/fiado';
+import type { Sesion } from '@/domain/rules/roles';
 import type { OperacionVenta } from '@/domain/rules/venta';
 import { SincronizadorCola, SincronizadorVentas } from '@/domain/usecases/sincronizarVentas';
 import { dataAppId } from '@/shared/env';
 
+import { asegurarToken } from './asegurarToken';
 import { CajaFirestore, RecordatoriosFirestore } from './firebase/cajaFirestore';
 import { obtenerFirebase } from './firebase/client';
+import { EquipoFirestore } from './firebase/equipoFirestore';
 import { clasificadorFirebase } from './firebase/errores';
 import {
   ClientesFirestore,
@@ -33,10 +35,17 @@ import { CacheCatalogo } from './local/cacheCatalogo';
 import { CajaOffline, ColaCajaPersistente, type ColaCaja } from './local/cajaOffline';
 import { ColaMovimientosPersistente, ColaVentasPersistente } from './local/colaVentas';
 import { FiadoOffline } from './local/fiadoOffline';
+import { CacheSesion, claveLocal } from './sesion';
 
 /** Dependencias de una sesión de usuario. Se crea al iniciar sesión, se descarta al salir. */
 export interface Contenedor {
+  /** uid de quien usa la app (Firebase Auth). */
   uid: string;
+  /**
+   * D-33: rol y bodega. La raíz de datos es `users/{sesion.bodega}` (el dueño: su propio uid;
+   * el cajero: el uid del dueño). Cada escritura lleva la autoría de esta sesión.
+   */
+  sesion: Sesion;
   productos: RepositorioProductos;
   clientes: RepositorioClientes;
   fiado: RepositorioFiado;
@@ -55,43 +64,34 @@ export interface Contenedor {
   sincronizadorCaja: SincronizadorCola<OperacionCaja>;
 }
 
-/**
- * D-31: antes de cada transacción del outbox se pide el token de Auth. Si está vencido y no
- * hay red, falla aquí con `auth/network-request-failed` (error transitorio: se reintenta
- * luego) en lugar de fallar dentro de `runTransaction`, donde el SDK de Firestore 13.3
- * trata ese código como desconocido, dispara `INTERNAL ASSERTION FAILED (ID 3c6b)` y deja la
- * instancia inservible. Con un token recién validado (> 5 min de vida) Firestore no necesita
- * renovarlo durante la transacción.
- */
-export async function asegurarToken(auth: Pick<Auth, 'currentUser'>): Promise<void> {
-  const usuario = auth.currentUser;
-  if (!usuario) throw Object.assign(new Error('Sesión aún no restaurada'), { code: 'unavailable' });
-  await usuario.getIdToken();
-}
+export { asegurarToken };
 
-export function crearContenedor(uid: string, enLinea: () => boolean): Contenedor {
+export function crearContenedor(sesion: Sesion, enLinea: () => boolean): Contenedor {
   const { db, auth } = obtenerFirebase();
+  const { uid } = sesion;
+  // Outbox y caché del teléfono separados por sesión (el dueño mantiene su clave de siempre).
+  const local = claveLocal(sesion);
   const conToken =
     <T, R>(enviar: (op: T) => Promise<R>) =>
     async (op: T): Promise<R> => {
       await asegurarToken(auth);
       return enviar(op);
     };
-  const rutas = new Rutas(db, dataAppId(), uid);
-  const ventas = new VentasFirestore(db, rutas);
+  const rutas = new Rutas(db, dataAppId(), sesion.bodega);
+  const ventas = new VentasFirestore(db, rutas, sesion);
   const confirmarVenta = conToken((op: OperacionVenta) => ventas.confirmar(op));
-  const cola = new ColaVentasPersistente(AsyncStorage, uid);
-  const remotoFiado = new FiadoFirestore(db, rutas);
-  const colaFiado = new ColaMovimientosPersistente(AsyncStorage, uid);
-  const cache = new CacheCatalogo(AsyncStorage, uid);
+  const cola = new ColaVentasPersistente(AsyncStorage, local);
+  const remotoFiado = new FiadoFirestore(db, rutas, sesion);
+  const colaFiado = new ColaMovimientosPersistente(AsyncStorage, local);
+  const cache = new CacheCatalogo(AsyncStorage, local);
   const sincronizadorFiado = new SincronizadorCola<OperacionMovimiento>(
     colaFiado,
     conToken((op: OperacionMovimiento) => remotoFiado.confirmar(op)),
     (op) => op.id,
     clasificadorFirebase,
   );
-  const remotoCaja = new CajaFirestore(db, rutas);
-  const colaCaja = new ColaCajaPersistente(AsyncStorage, uid);
+  const remotoCaja = new CajaFirestore(db, rutas, sesion);
+  const colaCaja = new ColaCajaPersistente(AsyncStorage, local);
   const sincronizadorCaja = new SincronizadorCola<OperacionCaja>(
     colaCaja,
     conToken((op: OperacionCaja) => remotoCaja.confirmar(op)),
@@ -100,6 +100,7 @@ export function crearContenedor(uid: string, enLinea: () => boolean): Contenedor
   );
   return {
     uid,
+    sesion,
     productos: new ProductosFirestore(rutas),
     clientes: new ClientesFirestore(rutas),
     fiado: new FiadoOffline({
@@ -131,5 +132,16 @@ export function crearContenedor(uid: string, enLinea: () => boolean): Contenedor
     }),
     colaCaja,
     sincronizadorCaja,
+  };
+}
+
+/**
+ * D-33: equipo (invitaciones, miembros, cuentas) y caché de la sesión resuelta. Viven fuera
+ * del contenedor porque se usan antes de saber el rol (y para un cajero sin acceso).
+ */
+export function crearServiciosEquipo() {
+  return {
+    equipo: new EquipoFirestore(() => obtenerFirebase().db, obtenerFirebase().auth, dataAppId()),
+    cacheSesion: new CacheSesion(AsyncStorage),
   };
 }

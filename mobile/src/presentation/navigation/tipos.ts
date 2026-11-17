@@ -28,6 +28,12 @@ export type RaizParams = {
   Cobranza: undefined;
   /** Apertura, ingresos/egresos y cierre de caja con arqueo (D-28). */
   Caja: undefined;
+  /** D-33: cajeros e invitaciones (solo el dueño). */
+  Equipo: undefined;
+  /** D-33: "Tengo un código de invitación". */
+  UnirseEquipo: undefined;
+  /** D-33: cajero desactivado o quitado. */
+  SinAcceso: undefined;
 };
 
 export type PantallaRaiz<T extends keyof RaizParams> = NativeStackScreenProps<RaizParams, T>;

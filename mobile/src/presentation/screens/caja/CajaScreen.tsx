@@ -16,6 +16,7 @@ import { fechaEfectiva } from '@/domain/rules/reportes';
 import { abrirCaja, cerrarCaja, registrarMovimientoCaja } from '@/domain/usecases/caja';
 
 import { EstadoVista } from '../../components/EstadoVista';
+import { textoAutoria } from '../../autoria';
 import { Tarjeta } from '../../components/Tarjeta';
 import { useCaja } from '../../hooks/useCaja';
 import { useTema } from '../../hooks/useDerivados';
@@ -230,6 +231,7 @@ function CajaAbierta({
         <View style={[estilos.pildora, { backgroundColor: tema.colors.secondaryContainer }]}>
           <Text variant="labelMedium" style={{ color: tema.colors.onSecondaryContainer }}>
             {`Abierta desde ${fechaHora(fechaEfectiva(caja.apertura))}`}
+            {textoAutoria('aperturaCaja', caja, ' · Abrió') ?? ''}
             {caja.pendiente ? ' · Por enviar' : ''}
           </Text>
         </View>
@@ -323,6 +325,13 @@ function CajaAbierta({
 }
 
 function FilaCierre({ caja }: { caja: Caja }) {
+  // D-33: quién abrió y quién cerró ("Abrió: Rosa · Cerró: Lucho"). Cajas viejas no lo tienen.
+  const autores = [
+    textoAutoria('aperturaCaja', caja, 'Abrió'),
+    textoAutoria('cierreCaja', caja, 'Cerró'),
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const tema = useTema();
   const tenue = { color: tema.colors.onSurfaceVariant };
   const cierre = caja.cierre;
@@ -347,6 +356,11 @@ function FilaCierre({ caja }: { caja: Caja }) {
             : 'Sin datos de cierre'}
           {caja.pendiente ? ' · Por enviar' : ''}
         </Text>
+        {autores ? (
+          <Text variant="bodySmall" style={tenue} testID={`autores-${caja.id}`}>
+            {autores}
+          </Text>
+        ) : null}
       </View>
       <Text variant="labelLarge" style={[NUMEROS, { color }]}>
         {textoArqueo(diferencia, resultado)}
