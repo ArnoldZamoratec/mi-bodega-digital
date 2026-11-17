@@ -1,6 +1,7 @@
 import { datos, fuente, type EstadoDatos } from '../datos';
 import { esc, estadoBoton } from '../dom';
 import { icono } from '../icons';
+import { accionesCuenta, esCajero, permite, sesionActual } from '../sesion';
 import { fijarTema, preferenciaTema, type PreferenciaTema } from '../theme';
 
 let raiz: HTMLElement | null = null;
@@ -22,16 +23,42 @@ function pintar(): void {
         ${op('oscuro', icono('moon', 18), 'Noche')}
       </div>
     </section>
-    <section class="ajuste" aria-labelledby="a-bodega">
+    ${
+      esCajero()
+        ? `<section class="ajuste" aria-labelledby="a-bodega">
+      <h2 class="titulo-seccion" id="a-bodega">Bodega donde trabajas</h2>
+      <p>${esc(e.nombreBodega ?? 'Sin nombre todavía')}</p>
+      <p class="texto-sec">Vendes como cajero. Los precios, los productos y los reportes los maneja el dueño.</p>
+    </section>`
+        : `<section class="ajuste" aria-labelledby="a-bodega">
       <h2 class="titulo-seccion" id="a-bodega">Tu bodega</h2>
       <p>${esc(e.nombreBodega ?? 'Sin nombre todavía')}</p>
       <p class="texto-sec">El nombre sale en tus tickets y en los recordatorios. Se cambia desde la app móvil, en Ajustes.</p>
-    </section>
+    </section>`
+    }
+    ${
+      permite('gestionarEquipo')
+        ? `<section class="ajuste" aria-labelledby="a-equipo">
+      <h2 class="titulo-seccion" id="a-equipo">Equipo</h2>
+      <p class="texto-sec">Invita a quien te ayuda en la tienda para que venda con su propia cuenta. Tú ves quién vendió cada cosa.</p>
+      <div><a class="btn btn-secundario" href="#equipo">${icono('users', 18)} Ver mi equipo</a></div>
+    </section>`
+        : ''
+    }
     <section class="ajuste" aria-labelledby="a-cuenta">
       <h2 class="titulo-seccion" id="a-cuenta">Tu cuenta</h2>
-      <p>${esc(e.email ?? '')}</p>
+      <p>${esc(e.email ?? '')}${esCajero() && sesionActual()?.nombre ? ` · ${esc(sesionActual()?.nombre)}` : ''}</p>
       <div><button type="button" class="btn btn-secundario" data-salir>${icono('log-out', 18)} Cerrar sesión</button></div>
-    </section>`;
+    </section>
+    ${
+      !esCajero() && accionesCuenta()
+        ? `<section class="ajuste" aria-labelledby="a-unirme">
+      <h2 class="titulo-seccion" id="a-unirme">¿Te invitaron como cajero?</h2>
+      <p class="texto-sec">Si el dueño de otra bodega te envió un código, úsalo aquí para vender en su bodega con esta cuenta.</p>
+      <div><button type="button" class="btn btn-fantasma" data-unirme>${icono('key', 18)} Tengo un código de invitación</button></div>
+    </section>`
+        : ''
+    }`;
 }
 
 export function montarAjustes(contenedor: HTMLElement): void {
@@ -47,6 +74,10 @@ export function montarAjustes(contenedor: HTMLElement): void {
     if (tema?.dataset.tema) {
       fijarTema(tema.dataset.tema as PreferenciaTema);
       pintar();
+      return;
+    }
+    if (t.closest('[data-unirme]')) {
+      accionesCuenta()?.unirmeConCodigo();
       return;
     }
     const salir = t.closest<HTMLButtonElement>('[data-salir]');

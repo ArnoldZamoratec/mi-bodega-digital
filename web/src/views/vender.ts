@@ -17,6 +17,7 @@ import { datos, fuente, type EstadoDatos } from '../datos';
 import { avisar, esc, esqueletoFilas, estadoBoton, punteroFino, repintar, req, soles, vacio } from '../dom';
 import { icono } from '../icons';
 import { crearVentanaDeshacer } from '../logic/deshacer';
+import { permite } from '../sesion';
 import { accionTecla, esCampoTexto } from '../logic/teclado';
 import { billetes, estadoPago } from '../logic/vuelto';
 import {
@@ -90,12 +91,18 @@ function pintarCatalogo(): void {
     cont.innerHTML = Array.from({ length: 12 }, () => esqueletoFilas(1, 'esq-prod')).join('');
     return;
   }
+  // El cajero no crea productos (D-33): sin el botón "Agregar producto".
+  const agregar = permite('editarProductos')
+    ? { accion: { etiqueta: 'Agregar producto', atributo: 'data-ir="productos" data-nuevo-producto' } }
+    : {};
   if (productos().length === 0) {
     cont.innerHTML = `<div class="catalogo-vacio">${vacio({
       icono: 'package-plus',
       titulo: 'Tu catálogo está vacío',
-      texto: 'Agrega tu primer producto, toma 20 segundos. Después aparece aquí como un botón.',
-      accion: { etiqueta: 'Agregar producto', atributo: 'data-ir="productos" data-nuevo-producto' },
+      texto: permite('editarProductos')
+        ? 'Agrega tu primer producto, toma 20 segundos. Después aparece aquí como un botón.'
+        : 'El dueño agrega los productos desde su cuenta. Cuando lo haga, aparecerán aquí.',
+      ...agregar,
     })}</div>`;
     return;
   }
@@ -105,8 +112,10 @@ function pintarCatalogo(): void {
     cont.innerHTML = `<div class="catalogo-vacio">${vacio({
       icono: 'search',
       titulo: `No hay "${termino}" en tu catálogo`,
-      texto: 'Revisa cómo se escribe, o agrégalo como producto nuevo.',
-      accion: { etiqueta: 'Agregar producto', atributo: 'data-ir="productos" data-nuevo-producto' },
+      texto: permite('editarProductos')
+        ? 'Revisa cómo se escribe, o agrégalo como producto nuevo.'
+        : 'Revisa cómo se escribe. Si falta, avísale al dueño para que lo agregue.',
+      ...agregar,
     })}</div>`;
     return;
   }
@@ -265,14 +274,20 @@ function pintarCobro(): void {
   const zona = raiz?.querySelector('#cobro-zona');
   if (!zona) return;
   if (fase === 'listo') {
-    const puede = ventana.abierta();
+    // Deshacer = contraasiento (anular): solo quien puede anular ventas (el dueño, D-33).
+    const anula = permite('anularVenta');
+    const puede = anula && ventana.abierta();
     zona.innerHTML = `
       <div class="cobro-acciones">
         <button type="button" class="btn btn-primario" data-nueva-venta>${icono('receipt', 18)} Nueva venta</button>
         ${
           puede
             ? `<button type="button" class="btn btn-secundario deshacer" data-deshacer>${icono('undo', 18)}<span id="deshacer-texto">Deshacer (${ventana.segundosRestantes()} s)</span><span class="deshacer-barra" aria-hidden="true"></span></button>`
-            : `<p class="texto-sec" style="align-self:center;font-size:13px">Para anular esta venta más tarde, usa la app móvil.</p>`
+            : `<p class="texto-sec" style="align-self:center;font-size:13px">${
+                anula
+                  ? 'Para anular esta venta más tarde, usa la app móvil.'
+                  : 'Si te equivocaste, avísale al dueño: él puede anular la venta.'
+              }</p>`
         }
       </div>`;
     return;
@@ -408,7 +423,7 @@ async function cobrar(): Promise<void> {
 }
 
 async function deshacer(): Promise<void> {
-  if (!ultima || !ventana.tomar()) return;
+  if (!ultima || !permite('anularVenta') || !ventana.tomar()) return;
   pararTick();
   const btn = raiz?.querySelector<HTMLButtonElement>('[data-deshacer]') ?? null;
   estadoBoton(btn, 'cargando', 'Deshaciendo…');

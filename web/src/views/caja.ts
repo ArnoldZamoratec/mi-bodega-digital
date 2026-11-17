@@ -4,8 +4,6 @@ import {
   armarCierre,
   armarMovimientoCaja,
   LARGO_MAXIMO_MOTIVO,
-  type Caja,
-  type MovimientoCaja,
   type OperacionCaja,
   type ResumenCaja,
   type TipoMovimientoCaja,
@@ -29,6 +27,10 @@ import {
   vistaCaja,
   type VistaCaja,
 } from '../logic/caja';
+import { hayVentasDeCajeros, ventasDelTurno, ventasPorAutor } from '../logic/equipo';
+import type { VentaWeb } from '../mappers';
+import type { CajaWeb, MovimientoCajaWeb } from '../mappersCaja';
+import { esDeOtro, nombreDeAutor, sesionActual } from '../sesion';
 
 /**
  * Caja (D-28): abrir con el sencillo, anotar ingresos y egresos, y cerrar contando el
@@ -98,7 +100,7 @@ function htmlApertura(): string {
     </section>`;
 }
 
-function htmlAbierta(caja: Caja): string {
+function htmlAbierta(caja: CajaWeb): string {
   return `
     <div class="caja-layout">
       <section class="caja-principal" aria-labelledby="caja-esperado-etiqueta">
@@ -109,6 +111,7 @@ function htmlAbierta(caja: Caja): string {
           <p class="caja-etiqueta-pie">en efectivo en el cajón</p>
         </div>
         <dl class="desglose" id="caja-desglose" aria-label="Cómo se calcula"></dl>
+        <div id="caja-autores"></div>
         <div class="fila-botones caja-acciones" id="caja-acciones">
           <button type="button" class="btn btn-primario" data-abrir-cierre>${icono('lock', 18)} Cerrar caja</button>
           <button type="button" class="btn btn-secundario" data-abrir-mov aria-expanded="false" aria-controls="caja-zona-mov">${icono('plus', 18)} Registrar ingreso o egreso</button>
@@ -119,6 +122,7 @@ function htmlAbierta(caja: Caja): string {
       <section class="caja-lateral" aria-labelledby="t-movs-caja">
         <h2 class="titulo-seccion" id="t-movs-caja">Movimientos de esta caja</h2>
         <div id="caja-movs" data-caja="${esc(caja.id)}"></div>
+        <div id="caja-ventas"></div>
       </section>
     </div>`;
 }
@@ -197,7 +201,7 @@ function htmlDesglose(r: ResumenCaja | null): string {
   ].join('');
 }
 
-function htmlMovimientos(movs: readonly MovimientoCaja[], cargando: boolean): string {
+function htmlMovimientos(movs: readonly MovimientoCajaWeb[], cargando: boolean): string {
   if (cargando) return esqueletoFilas(3, 'esq-fila');
   if (movs.length === 0)
     return `<p class="texto-sec caja-movs-vacio">Aún no hay ingresos ni egresos. Anótalos cuando saques plata para pagar al proveedor o metas sencillo.</p>`;
@@ -211,7 +215,7 @@ function htmlMovimientos(movs: readonly MovimientoCaja[], cargando: boolean): st
         <span class="caja-mov-ico${ingreso ? ' ingreso' : ''}" aria-hidden="true">${icono(ingreso ? 'plus' : 'minus', 18)}</span>
         <span class="caja-mov-texto">
           <span class="caja-mov-motivo">${esc(m.motivo)}</span>
-          <span class="caja-mov-meta">${ingreso ? 'Ingreso' : 'Egreso'}${f ? ` · ${esc(momentoCorto(f, ahora))}` : ''}</span>
+          <span class="caja-mov-meta">${ingreso ? 'Ingreso' : 'Egreso'}${f ? ` · ${esc(momentoCorto(f, ahora))}` : ''}${esDeOtro(m.autor) ? ` · ${esc(nombreDeAutor(m.autor))}` : ''}</span>
         </span>
         <span class="caja-mov-monto${ingreso ? ' ingreso' : ''}">${ingreso ? '+' : '−'} ${esc(soles(m.monto))}</span>
       </li>`;
@@ -219,7 +223,59 @@ function htmlMovimientos(movs: readonly MovimientoCaja[], cargando: boolean): st
     .join('')}</ul>`;
 }
 
-function htmlHistorial(historial: readonly Caja[]): string {
+/**
+ * "Quién vendió" en este turno (D-33): solo si vendió alguien que no es el dueño, para no
+ * llenar de "Tú" la caja de una bodega sin cajeros. Montos totales (efectivo, Yape y fiado).
+ */
+function htmlAutores(ventas: readonly VentaWeb[]): string {
+  const sesion = sesionActual();
+  if (!sesion || !hayVentasDeCajeros(ventas, sesion.bodega)) return '';
+  const filas = ventasPorAutor(ventas)
+    .map((a) => {
+      const nombre = a.uid ? nombreDeAutor({ uid: a.uid, nombre: a.nombre }) : 'Sin registrar';
+      return `<div class="autores-fila"><dt>Vendió: ${esc(nombre)} (${a.cantidad === 1 ? '1 venta' : `${a.cantidad} ventas`})</dt><dd>${esc(soles(a.total))}</dd></div>`;
+    })
+    .join('');
+  return `<h3 class="titulo-seccion" style="margin-top:8px">Quién vendió en este turno</h3><dl class="autores">${filas}</dl>`;
+}
+
+/** Ventas del turno, la más reciente primero, con "Vendió: Rosa" si la hizo otra persona. */
+function htmlVentasTurno(ventas: readonly VentaWeb[]): string {
+  const normales = ventas.filter((v) => !v.anulaA);
+  if (normales.length === 0) return '';
+  const anuladas = new Set(ventas.filter((v) => v.anulaA).map((v) => v.anulaA));
+  const ahora = new Date();
+  const recientes = [...normales]
+    .sort((a, b) => (fechaEfectiva(b)?.getTime() ?? 0) - (fechaEfectiva(a)?.getTime() ?? 0))
+    .slice(0, 15);
+  return `
+    <h2 class="titulo-seccion" id="t-ventas-caja" style="margin-top:16px">Ventas de este turno</h2>
+    <ul class="caja-movs" aria-labelledby="t-ventas-caja">${recientes
+      .map((v) => {
+        const f = fechaEfectiva(v);
+        const meta = [
+          f ? momentoCorto(f, ahora) : '',
+          v.metodoDePago,
+          esDeOtro(v.autor) ? `Vendió: ${nombreDeAutor(v.autor)}` : '',
+          anuladas.has(v.id) ? 'Anulada' : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        const detalle = v.items.map((i) => `${i.nombre} (x${i.cantidad})`).join(', ');
+        return `
+        <li class="caja-venta">
+          <span class="caja-mov-ico" aria-hidden="true">${icono('receipt', 18)}</span>
+          <span class="caja-mov-texto">
+            <span class="caja-mov-motivo">${esc(detalle || 'Venta')}</span>
+            <span class="caja-mov-meta">${esc(meta)}</span>
+          </span>
+          <span class="caja-mov-monto">${esc(soles(v.total))}</span>
+        </li>`;
+      })
+      .join('')}</ul>${normales.length > recientes.length ? `<p class="texto-sec">Y ${normales.length - recientes.length} ventas más.</p>` : ''}`;
+}
+
+function htmlHistorial(historial: readonly CajaWeb[]): string {
   if (historial.length === 0)
     return '<p class="texto-sec">Aún no cerraste ninguna caja. Cuando lo hagas, verás aquí cada cierre con su diferencia.</p>';
   return `
@@ -230,7 +286,7 @@ function htmlHistorial(historial: readonly Caja[]): string {
           const ci = c.cierre;
           const tono = ci ? tonoArqueo(ci.diferencia) : 'cuadra';
           return `<tr>
-            <th scope="row">${esc(periodoCaja(c))}</th>
+            <th scope="row">${esc(periodoCaja(c))}${esDeOtro(c.cerradaPor) ? `<span class="autor-linea">Cerró: ${esc(nombreDeAutor(c.cerradaPor))}</span>` : ''}</th>
             <td data-etiqueta="Debería haber">${ci ? esc(soles(ci.esperado)) : '—'}</td>
             <td data-etiqueta="Contado">${ci ? esc(soles(ci.contado)) : '—'}</td>
             <td data-etiqueta="Diferencia"><span class="dif dif-${tono}">${ci ? esc(textoDiferencia(ci.diferencia)) : 'Sin datos'}</span></td>
@@ -272,7 +328,8 @@ function pintarAbierta(v: VistaCaja): void {
   if (!caja) return;
   const inicio = fechaEfectiva(caja.apertura);
   const desde = $c('#caja-desde span');
-  if (desde) desde.textContent = inicio ? `Abierta desde ${momentoCorto(inicio, new Date())}` : 'Abierta';
+  const quien = esDeOtro(caja.abiertaPor) ? ` · abrió ${nombreDeAutor(caja.abiertaPor)}` : '';
+  if (desde) desde.textContent = `${inicio ? `Abierta desde ${momentoCorto(inicio, new Date())}` : 'Abierta'}${quien}`;
   const esp = $c('#caja-esperado');
   if (esp) {
     esp.textContent = v.resumen ? soles(v.resumen.esperado) : '…';
@@ -283,6 +340,11 @@ function pintarAbierta(v: VistaCaja): void {
   const movs = $c('#caja-movs');
   const vivo = datos().cajaVivo;
   if (movs) movs.innerHTML = htmlMovimientos(v.movimientos, vivo?.cajaId !== caja.id || vivo.movimientos === null);
+  const turno = vivo?.cajaId === caja.id && vivo.ventas ? ventasDelTurno(vivo.ventas, caja) : [];
+  const autores = $c('#caja-autores');
+  if (autores) autores.innerHTML = htmlAutores(turno);
+  const ventasEl = $c('#caja-ventas');
+  if (ventasEl) ventasEl.innerHTML = htmlVentasTurno(turno);
   if (cierreAbierto) pintarArqueo(v);
 }
 

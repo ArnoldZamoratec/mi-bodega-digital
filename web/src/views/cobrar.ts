@@ -41,6 +41,8 @@ import {
 } from '../dom';
 import { icono } from '../icons';
 import { chipDias, iniciales } from '../logic/cobranza';
+import type { MovimientoWeb } from '../mappers';
+import { esDeOtro, nombreDeAutor, permite } from '../sesion';
 import { abrirEditorCliente } from './editores';
 
 /**
@@ -51,7 +53,7 @@ import { abrirEditorCliente } from './editores';
 let raiz: HTMLElement | null = null;
 let detalleId: string | null = null;
 
-const movimientosDe = (clienteId: string): MovimientoFiado[] =>
+const movimientosDe = (clienteId: string): MovimientoWeb[] =>
   (datos().movimientos ?? []).filter((m) => m.clienteId === clienteId);
 
 const msjError = (error: unknown, porDefecto: string): string =>
@@ -209,8 +211,10 @@ const formatoFecha = new Intl.DateTimeFormat('es-PE', {
 
 let metodoAbono: MetodoPagoAbono = 'Efectivo';
 
-export function htmlHistorial(movimientos: readonly MovimientoFiado[]): string {
+export function htmlHistorial(movimientos: readonly MovimientoWeb[]): string {
   if (movimientos.length === 0) return '<p class="texto-sec">Todavía no hay movimientos.</p>';
+  // Borrar movimientos es solo del dueño (D-33); "Cobrar este" es un abono y sí lo hace el cajero.
+  const borra = permite('borrarMovimientos');
   const estados = new Map(estadoDeCargos(movimientos).map((c) => [c.movimiento.id, c]));
   return `<ul class="historial" id="historial">${ordenarCronologico(movimientos)
     .map((m) => {
@@ -223,10 +227,12 @@ export function htmlHistorial(movimientos: readonly MovimientoFiado[]): string {
       if (esCargo && saldado) detalle = estado?.estado === 'cubierto' ? 'Cubierto con abonos' : 'Pagado';
       else if (esCargo && estado?.estado === 'parcial') detalle = `Falta ${soles(estado.pendiente)}`;
       else if (!esCargo) detalle = `Abono en ${m.metodoPago ?? 'Efectivo'}`;
+      // "Registró: Rosa" cuando lo anotó otra persona (en una bodega sin cajeros no aparece).
+      const autor = esDeOtro(m.autor) ? `Registró: ${nombreDeAutor(m.autor)}` : '';
       return `
       <li class="mov${saldado ? ' saldado' : ''}" data-mov="${esc(m.id)}">
         <span class="mov-fecha">${esc(fecha)}</span>
-        <span class="mov-desc">${esc(m.descripcion)}${detalle ? `<span class="mov-estado">${esc(detalle)}</span>` : ''}</span>
+        <span class="mov-desc">${esc(m.descripcion)}${detalle ? `<span class="mov-estado">${esc(detalle)}</span>` : ''}${autor ? `<span class="mov-estado">${esc(autor)}</span>` : ''}</span>
         <span class="mov-monto${esCargo ? '' : ' abono'}">${esc(esCargo ? `+ ${soles(m.monto)}` : `− ${soles(Math.abs(m.monto))}`)}</span>
         <span class="mov-acciones">
           ${
@@ -234,7 +240,7 @@ export function htmlHistorial(movimientos: readonly MovimientoFiado[]): string {
               ? `<button type="button" class="btn btn-fantasma btn-sm marcar-pagado-btn" data-liquidar="${esc(m.id)}">Cobrar este</button>`
               : ''
           }
-          <button type="button" class="btn-icono eliminar-deuda-btn" data-eliminar="${esc(m.id)}" aria-label="Eliminar este movimiento">${icono('trash', 18)}</button>
+          ${borra ? `<button type="button" class="btn-icono eliminar-deuda-btn" data-eliminar="${esc(m.id)}" aria-label="Eliminar este movimiento">${icono('trash', 18)}</button>` : ''}
         </span>
       </li>`;
     })
@@ -256,7 +262,7 @@ function htmlDetalle(cliente: Cliente, movimientos: readonly MovimientoFiado[]):
       </div>
       <div class="fila-botones">
         ${saldo > 0 && tieneWa ? `<button type="button" class="btn-icono" data-recordar="${esc(cliente.id)}" aria-label="Recordar por WhatsApp">${icono('message', 20)}</button>` : ''}
-        <button type="button" class="btn-icono" data-editar-cliente aria-label="Editar cliente">${icono('pencil', 20)}</button>
+        ${permite('editarClientes') ? `<button type="button" class="btn-icono" data-editar-cliente aria-label="Editar cliente">${icono('pencil', 20)}</button>` : ''}
       </div>
     </div>
 
@@ -279,7 +285,7 @@ function htmlDetalle(cliente: Cliente, movimientos: readonly MovimientoFiado[]):
       <button type="submit" class="btn btn-primario btn-ancho">${icono('hand-coins', 18)} Registrar abono</button>
     </form>
 
-    <details class="fiar" id="bloque-fiar">
+    ${permite('fiarSinVenta') ? `<details class="fiar" id="bloque-fiar">
       <summary class="btn btn-secundario btn-sm" style="justify-self:start">${icono('plus', 18)} Fiar sin venta</summary>
       <form class="formulario" id="form-cargo" novalidate style="margin-top:12px">
         <div class="dos-col">
@@ -293,7 +299,7 @@ function htmlDetalle(cliente: Cliente, movimientos: readonly MovimientoFiado[]):
         <p class="mensaje-error" id="error-cargo" role="alert" hidden></p>
         <button type="submit" class="btn btn-secundario">Anotar fiado</button>
       </form>
-    </details>
+    </details>` : ''}
 
     <section aria-labelledby="titulo-historial">
       <h3 class="titulo-seccion" id="titulo-historial" style="margin-bottom:8px">Cuaderno</h3>
@@ -331,7 +337,7 @@ function conectarDetalle(panel: HTMLElement, cliente: Cliente): void {
         .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.metodoAbono === metodoAbono)));
       return;
     }
-    if (t.closest('[data-editar-cliente]')) {
+    if (t.closest('[data-editar-cliente]') && permite('editarClientes')) {
       abrirEditorCliente(cliente);
       return;
     }
@@ -356,7 +362,7 @@ function conectarDetalle(panel: HTMLElement, cliente: Cliente): void {
       return;
     }
     const del = t.closest<HTMLElement>('[data-eliminar]');
-    if (del?.dataset.eliminar) {
+    if (del?.dataset.eliminar && permite('borrarMovimientos')) {
       const id = del.dataset.eliminar;
       const zona = del.closest('.mov')?.querySelector<HTMLElement>('.mov-acciones');
       if (!zona) return;
@@ -402,7 +408,7 @@ function conectarDetalle(panel: HTMLElement, cliente: Cliente): void {
     }
   });
 
-  req<HTMLFormElement>(panel, '#form-cargo').addEventListener('submit', async (ev) => {
+  panel.querySelector<HTMLFormElement>('#form-cargo')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const form = ev.currentTarget as HTMLFormElement;
     const fd = new FormData(form);

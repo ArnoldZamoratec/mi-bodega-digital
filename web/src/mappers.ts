@@ -1,5 +1,7 @@
 import {
+  leerAutoria,
   METODOS_PAGO_ABONO,
+  type Autoria,
   type Cliente,
   type MetodoPagoAbono,
   type MetodoPagoVenta,
@@ -14,6 +16,16 @@ import {
  * mappers de la app móvil. Sin dependencia de `firebase`: solo se mira `toDate()`.
  */
 type Datos = Record<string, unknown>;
+
+/**
+ * Autoría (D-33, `leerAutoria` del core): quién registró la venta o el movimiento. Solo en
+ * la web (el core no la necesita para calcular); documentos viejos no la tienen.
+ */
+export interface ConAutor {
+  autor?: Autoria;
+}
+export type VentaWeb = Venta & ConAutor;
+export type MovimientoWeb = MovimientoFiado & ConAutor;
 
 interface ConToDate {
   toDate(): Date;
@@ -59,9 +71,10 @@ export function aCliente(id: string, d: Datos): Cliente {
   };
 }
 
-export function aVenta(id: string, d: Datos): Venta {
+export function aVenta(id: string, d: Datos): VentaWeb {
   const items = Array.isArray(d.items) ? (d.items as Datos[]) : [];
   const creadaEn = aFecha(d.creadaEn);
+  const autor = leerAutoria('venta', d);
   return {
     id,
     items: items.map((i) => ({
@@ -77,14 +90,16 @@ export function aVenta(id: string, d: Datos): Venta {
     fecha: aFecha(d.fecha),
     ...(creadaEn ? { creadaEn } : {}),
     ...(typeof d.anulaA === 'string' ? { anulaA: d.anulaA } : {}),
+    ...(autor ? { autor } : {}),
   };
 }
 
 const esMetodoAbono = (v: unknown): v is MetodoPagoAbono =>
   typeof v === 'string' && (METODOS_PAGO_ABONO as readonly string[]).includes(v);
 
-export function aMovimiento(id: string, d: Datos): MovimientoFiado {
+export function aMovimiento(id: string, d: Datos): MovimientoWeb {
   const creadaEn = aFecha(d.creadaEn);
+  const autor = leerAutoria('movimientoFiado', d);
   return {
     id,
     clienteId: texto(d.clienteId),
@@ -96,6 +111,7 @@ export function aMovimiento(id: string, d: Datos): MovimientoFiado {
     ...(typeof d.ventaId === 'string' ? { ventaId: d.ventaId } : {}),
     ...(esMetodoAbono(d.metodoPago) ? { metodoPago: d.metodoPago } : {}),
     ...(typeof d.deudaOrigenId === 'string' ? { deudaOrigenId: d.deudaOrigenId } : {}),
+    ...(autor ? { autor } : {}),
   };
 }
 

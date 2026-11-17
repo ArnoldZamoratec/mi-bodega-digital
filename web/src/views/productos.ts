@@ -3,6 +3,7 @@ import { esStockBajo, filtrarProductos, type Producto } from '@bodegon/core';
 import { datos, fuente, type EstadoDatos } from '../datos';
 import { avisar, esc, esqueletoFilas, repintar, soles, vacio } from '../dom';
 import { icono } from '../icons';
+import { aplicarPermisos, permite } from '../sesion';
 import { abrirEditorProducto } from './editores';
 
 /**
@@ -15,10 +16,14 @@ const stockVisible = (p: Producto): number | null => p.stock;
 
 function htmlFila(p: Producto): string {
   const stock = stockVisible(p);
+  // El cajero ve el stock, pero no lo ajusta ni edita productos (D-33, `editarProductos`).
+  const edita = permite('editarProductos');
   const ctrl =
     stock === null
       ? `<span class="stock-sin-control">Sin control de stock</span>`
-      : `<span class="stock-ctrl" role="group" aria-label="Stock de ${esc(p.nombre)}">
+      : !edita
+        ? `<span class="stock-sin-control">${esc(stock)} en stock</span>`
+        : `<span class="stock-ctrl" role="group" aria-label="Stock de ${esc(p.nombre)}">
           <button type="button" class="btn-icono" data-stock="${esc(p.id)}" data-delta="-1" aria-label="Restar uno al stock de ${esc(p.nombre)}">${icono('minus', 18)}</button>
           <output aria-live="polite">${esc(stock)}</output>
           <button type="button" class="btn-icono" data-stock="${esc(p.id)}" data-delta="1" aria-label="Sumar uno al stock de ${esc(p.nombre)}">${icono('plus', 18)}</button>
@@ -37,7 +42,7 @@ function htmlFila(p: Producto): string {
       </div>
       <span class="fila-prod-precio">${esc(soles(p.precio))}</span>
       ${ctrl}
-      <button type="button" class="btn-icono" data-editar="${esc(p.id)}" aria-label="Editar ${esc(p.nombre)}">${icono('pencil', 18)}</button>
+      ${edita ? `<button type="button" class="btn-icono" data-editar="${esc(p.id)}" aria-label="Editar ${esc(p.nombre)}">${icono('pencil', 18)}</button>` : '<span aria-hidden="true"></span>'}
     </li>`;
 }
 
@@ -50,12 +55,18 @@ function pintar(): void {
     return;
   }
   if (lista.length === 0) {
-    cont.innerHTML = vacio({
-      icono: 'package-plus',
-      titulo: 'Todavía no tienes productos',
-      texto: 'Agrega tu primer producto, toma 20 segundos: nombre, precio y, si quieres, cuántos tienes.',
-      accion: { etiqueta: 'Agregar producto', atributo: 'data-nuevo-producto' },
-    });
+    cont.innerHTML = permite('editarProductos')
+      ? vacio({
+          icono: 'package-plus',
+          titulo: 'Todavía no tienes productos',
+          texto: 'Agrega tu primer producto, toma 20 segundos: nombre, precio y, si quieres, cuántos tienes.',
+          accion: { etiqueta: 'Agregar producto', atributo: 'data-nuevo-producto' },
+        })
+      : vacio({
+          icono: 'package',
+          titulo: 'La bodega aún no tiene productos',
+          texto: 'El dueño los agrega desde su cuenta. Cuando lo haga, aparecerán aquí.',
+        });
     return;
   }
   const filtrados = filtrarProductos(lista, termino);
@@ -84,15 +95,15 @@ function pintar(): void {
       vacio({
         icono: 'search',
         titulo: `No hay "${termino}" en tus productos`,
-        texto: 'Revisa cómo se escribe o agrégalo.',
-        accion: { etiqueta: 'Agregar producto', atributo: 'data-nuevo-producto' },
+        texto: permite('editarProductos') ? 'Revisa cómo se escribe o agrégalo.' : 'Revisa cómo se escribe.',
+        ...(permite('editarProductos') ? { accion: { etiqueta: 'Agregar producto', atributo: 'data-nuevo-producto' } } : {}),
       }),
   );
 }
 
 async function ajustar(id: string, delta: number): Promise<void> {
   const p = datos().productos?.find((x) => x.id === id);
-  if (!p || p.stock === null) return;
+  if (!p || p.stock === null || !permite('editarProductos')) return;
   // Firestore aplica la escritura local al instante (el listener repinta en 0 ms).
   try {
     await fuente().ajustarStock(id, delta);
@@ -115,7 +126,7 @@ export function montarProductos(contenedor: HTMLElement): void {
           ${icono('search', 20)}
           <input id="buscar-productos" type="search" class="entrada" placeholder="Busca un producto" autocomplete="off">
         </label>
-        <button type="button" class="btn btn-primario" data-nuevo-producto>${icono('plus', 18)} Nuevo producto</button>
+        <button type="button" class="btn btn-primario" data-nuevo-producto data-permiso="editarProductos">${icono('plus', 18)} Nuevo producto</button>
       </div>
       <div id="productos-cuerpo"></div>
     </div>`;
@@ -128,7 +139,7 @@ export function montarProductos(contenedor: HTMLElement): void {
     const s = t.closest<HTMLElement>('[data-stock]');
     if (s?.dataset.stock) return void ajustar(s.dataset.stock, Number(s.dataset.delta));
     const ed = t.closest<HTMLElement>('[data-editar]');
-    if (ed?.dataset.editar) {
+    if (ed?.dataset.editar && permite('editarProductos')) {
       const p = datos().productos?.find((x) => x.id === ed.dataset.editar);
       if (p) abrirEditorProducto(p);
     }
@@ -137,7 +148,10 @@ export function montarProductos(contenedor: HTMLElement): void {
 }
 
 export const renderProductos = (_e: EstadoDatos): void => pintar();
-export const mostrarProductos = (): void => pintar();
+export function mostrarProductos(): void {
+  if (raiz) aplicarPermisos(raiz);
+  pintar();
+}
 export function reiniciarProductos(): void {
   termino = '';
 }

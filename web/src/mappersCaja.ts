@@ -1,3 +1,11 @@
+import {
+  leerAutoria,
+  sellarAperturaCaja,
+  sellarCierreCaja,
+  sellarMovimientoCaja,
+  type Autoria,
+  type Sesion,
+} from '@bodegon/core';
 import type {
   AperturaCaja,
   Caja,
@@ -15,10 +23,15 @@ import { aFecha } from './mappers';
  *   apertura:   { estado: 'abierta', apertura: { monto, fecha: request.time, creadaEn } }
  *   movimiento: { tipo, monto, motivo, fecha: request.time, creadaEn }
  *   cierre:     solo cambia { estado: 'cerrada', cierre: { contado, esperado, diferencia, fecha, creadaEn } }
+ * Más la autoría de D-33 (`sellarEscrituraCaja`): abiertaPor/registradoPor/cerradaPor.
  * Sin `origen`: las reglas solo admiten 'movil' o nada. Sin dependencia de `firebase`: el
  * sello del servidor y la hora del equipo se reciben ya armados (serverTimestamp / Timestamp).
  */
 type Datos = Record<string, unknown>;
+
+/** Autoría (D-33): quién abrió y cerró la caja, y quién anotó cada movimiento. */
+export type CajaWeb = Caja & { abiertaPor?: Autoria; cerradaPor?: Autoria };
+export type MovimientoCajaWeb = MovimientoCaja & { autor?: Autoria };
 
 const numero = (v: unknown): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : Number.NaN;
@@ -49,18 +62,23 @@ function aCierre(v: unknown): CierreCaja | undefined {
   };
 }
 
-export function aCaja(id: string, d: Datos): Caja {
+export function aCaja(id: string, d: Datos): CajaWeb {
   const cierre = aCierre(d.cierre);
+  const abiertaPor = leerAutoria('aperturaCaja', d);
+  const cerradaPor = leerAutoria('cierreCaja', d);
   return {
     id,
     // Cualquier valor raro se trata como cerrada: nunca bloquea abrir una caja nueva.
     estado: d.estado === 'abierta' ? 'abierta' : 'cerrada',
     apertura: aApertura(d.apertura),
     ...(cierre ? { cierre } : {}),
+    ...(abiertaPor ? { abiertaPor } : {}),
+    ...(cerradaPor ? { cerradaPor } : {}),
   };
 }
 
-export function aMovimientoCaja(cajaId: string, id: string, d: Datos): MovimientoCaja {
+export function aMovimientoCaja(cajaId: string, id: string, d: Datos): MovimientoCajaWeb {
+  const autor = leerAutoria('movimientoCaja', d);
   const tipo: TipoMovimientoCaja = d.tipo === 'egreso' ? 'egreso' : 'ingreso';
   return {
     id,
@@ -70,6 +88,7 @@ export function aMovimientoCaja(cajaId: string, id: string, d: Datos): Movimient
     motivo: typeof d.motivo === 'string' ? d.motivo : '',
     fecha: aFecha(d.fecha),
     ...conCreadaEn(d.creadaEn),
+    ...(autor ? { autor } : {}),
   };
 }
 
@@ -132,5 +151,21 @@ export function escrituraCaja<S, T>(op: OperacionCaja, sello: S, creadaEn: T): E
           },
         },
       };
+  }
+}
+
+/**
+ * Agrega la autoría que exigen las reglas para el cajero (y aceptan para el dueño):
+ * apertura → `abiertaPor`, movimiento → `registradoPor`, cierre → `cerradaPor` (D-33).
+ * Sin sesión, la escritura queda igual que antes.
+ */
+export function sellarEscrituraCaja<S, T>(w: EscrituraCaja<S, T>, sesion: Sesion | null): EscrituraCaja<S, T> {
+  switch (w.tipo) {
+    case 'crear-caja':
+      return { ...w, datos: sellarAperturaCaja(w.datos, sesion) };
+    case 'crear-movimiento':
+      return { ...w, datos: sellarMovimientoCaja(w.datos, sesion) };
+    case 'cerrar-caja':
+      return { ...w, datos: sellarCierreCaja(w.datos, sesion) };
   }
 }

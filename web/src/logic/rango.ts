@@ -11,11 +11,11 @@ import {
  * `CAMPOS_CONSULTA_RANGO`): un documento por id y solo los de fecha efectiva en el rango.
  * Así una venta cobrada sin conexión hace semanas aparece en su día y no en el de hoy.
  */
-export function unirConsultasRango(
-  ventasPorConsulta: readonly (readonly Venta[])[],
-  movimientosPorConsulta: readonly (readonly MovimientoFiado[])[],
+export function unirConsultasRango<V extends Venta, M extends MovimientoFiado>(
+  ventasPorConsulta: readonly (readonly V[])[],
+  movimientosPorConsulta: readonly (readonly M[])[],
   rango: RangoFechas,
-): { ventas: Venta[]; movimientos: MovimientoFiado[] } {
+): { ventas: V[]; movimientos: M[] } {
   return {
     ventas: unirPorId(...ventasPorConsulta).filter((v) => enRangoEfectivo(v, rango)),
     movimientos: unirPorId(...movimientosPorConsulta).filter((m) => enRangoEfectivo(m, rango)),

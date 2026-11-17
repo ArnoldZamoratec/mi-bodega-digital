@@ -1,4 +1,4 @@
-import type { MovimientoFiado, OperacionVenta } from '@bodegon/core';
+import { sesionDueno, type MovimientoFiado, type OperacionVenta } from '@bodegon/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FuenteDatos } from '../datos';
@@ -11,6 +11,7 @@ const store = await import('../store');
 const ticket = await import('../views/ticket');
 const cobrar = await import('../views/cobrar');
 const vender = await import('../views/vender');
+const sesion = await import('../sesion');
 
 const BASE = `
   <div id="app"><section id="v"></section></div>
@@ -54,6 +55,8 @@ function fuenteFalsa(extra: Partial<FuenteDatos> = {}): FuenteDatos {
 
 beforeEach(() => {
   document.body.innerHTML = BASE;
+  // Las vistas muestran lo que permite el rol (D-33): estas pruebas son del dueño.
+  sesion.fijarSesion(sesionDueno('dueno-1', 'Lucho'));
   store.resetState();
   datosMod.reiniciarDatos();
   vender.reiniciarVender();

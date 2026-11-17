@@ -1,4 +1,10 @@
-import { armarAnulacion, CAMPOS_CONSULTA_RANGO, type OperacionVenta } from '@bodegon/core';
+import {
+  armarAnulacion,
+  CAMPOS_CONSULTA_RANGO,
+  sellarMovimientoFiado,
+  sellarVenta,
+  type OperacionVenta,
+} from '@bodegon/core';
 import {
   addDoc,
   deleteDoc,
@@ -17,9 +23,11 @@ import { signOut } from 'firebase/auth';
 import { actualizarDatos, type FuenteDatos } from './datos';
 import { auth, db } from './firebase';
 import { registrarListener } from './listeners';
+import { debeDescontarStock } from './logic/equipo';
 import { unirConsultasRango } from './logic/rango';
 import { aCliente, aMovimiento, aProducto, aVenta, porNombre } from './mappers';
-import { aCaja, aMovimientoCaja, escrituraCaja } from './mappersCaja';
+import { aCaja, aMovimientoCaja, escrituraCaja, sellarEscrituraCaja } from './mappersCaja';
+import { sesionActual } from './sesion';
 import {
   getCajasCol,
   getClientesCol,
@@ -31,6 +39,10 @@ import {
 } from './store';
 
 /**
+ * Autoría (D-33): cada escritura lleva quién la hizo (`sellar*` del core con la sesión). Las
+ * reglas la exigen al cajero y la aceptan del dueño. Rutas: `users/{bodega}` (store.ts), que
+ * para el cajero es la bodega del dueño.
+ *
  * Listeners de la sesión: UNO por colección (productos, clientes, libro de fiado y
  * config/negocio), registrados en listeners.ts para cerrarlos todos al salir (B-05).
  */
@@ -99,21 +111,23 @@ export const fuenteFirestore: FuenteDatos = {
 
   async cobrar(op: OperacionVenta) {
     // Transacción atómica: venta + cargo de fiado + stock, todo o nada (B-03).
+    const sesion = sesionActual();
     await runTransaction(db, async (tx) => {
       const refs = op.deltasStock.map((d) => doc(getProductosCol(), d.productoId));
       const snaps = await Promise.all(refs.map((r) => tx.get(r)));
 
-      tx.set(doc(getVentasCol(), op.ventaId), { ...op.venta, fecha: serverTimestamp() });
+      tx.set(doc(getVentasCol(), op.ventaId), sellarVenta({ ...op.venta, fecha: serverTimestamp() }, sesion));
       if (op.cargo && op.cargoId) {
-        tx.set(doc(getDeudasCol(), op.cargoId), { ...op.cargo, fecha: serverTimestamp() });
+        // El cargo lleva `ventaId`: las reglas del cajero lo comparan con SU venta fiada.
+        tx.set(doc(getDeudasCol(), op.cargoId), sellarMovimientoFiado({ ...op.cargo, fecha: serverTimestamp() }, sesion));
       }
-      // B-10: solo descuenta stock de productos que existen y tienen stock controlado.
+      // B-10: solo descuenta stock de productos que existen y tienen stock controlado. El cajero,
+      // además, solo baja stock numérico (D-33): un `null` no se toca.
       snaps.forEach((snap, i) => {
         const ref = refs[i];
         const delta = op.deltasStock[i]?.delta;
         if (!ref || delta === undefined || !snap.exists()) return;
-        const stock = snap.data().stock;
-        if (stock === null || stock === undefined) return;
+        if (!debeDescontarStock(snap.data().stock, delta, sesion)) return;
         tx.update(ref, { stock: increment(delta) });
       });
     });
@@ -135,7 +149,8 @@ export const fuenteFirestore: FuenteDatos = {
       const refs = anulacion.deltasStock.map((d) => doc(getProductosCol(), d.productoId));
       const snaps = await Promise.all(refs.map((r) => tx.get(r)));
 
-      tx.set(ventaRef, { ...anulacion.venta, fecha: serverTimestamp() });
+      // Anular es solo del dueño (las reglas lo niegan al cajero); queda sellada con su nombre.
+      tx.set(ventaRef, sellarVenta({ ...anulacion.venta, fecha: serverTimestamp() }, sesionActual()));
       snaps.forEach((snap, i) => {
         const ref = refs[i];
         const delta = anulacion.deltasStock[i]?.delta;
@@ -167,7 +182,7 @@ export const fuenteFirestore: FuenteDatos = {
     return (await addDoc(getClientesCol(), { ...c })).id;
   },
   async registrarMovimiento(m) {
-    await addDoc(getDeudasCol(), { ...m, fecha: serverTimestamp() });
+    await addDoc(getDeudasCol(), sellarMovimientoFiado({ ...m, fecha: serverTimestamp() }, sesionActual()));
   },
   async eliminarMovimiento(id) {
     await deleteDoc(doc(getDeudasCol(), id));
@@ -235,7 +250,10 @@ export const fuenteFirestore: FuenteDatos = {
     // Igual que mobile/src/data/firebase/cajaFirestore.ts: transacción idempotente con el id
     // generado aquí. `fecha` = serverTimestamp (las reglas exigen request.time) y
     // `creadaEn` = hora de este equipo (D-26).
-    const w = escrituraCaja(op, serverTimestamp(), Timestamp.fromMillis(op.creadaEn));
+    const w = sellarEscrituraCaja(
+      escrituraCaja(op, serverTimestamp(), Timestamp.fromMillis(op.creadaEn)),
+      sesionActual(),
+    );
     const cajaRef = doc(getCajasCol(), w.cajaId);
     await runTransaction(db, async (tx) => {
       switch (w.tipo) {

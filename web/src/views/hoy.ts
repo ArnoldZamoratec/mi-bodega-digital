@@ -1,4 +1,4 @@
-import { hoyLima, productosConStockBajo, type Venta } from '@bodegon/core';
+import { claveDiaLima, fechaEfectiva, hoyLima, productosConStockBajo } from '@bodegon/core';
 import { listaCobranza, totalPorCobrar } from '@bodegon/core/rules/cobranza';
 
 import { datos, fuente, type EstadoDatos } from '../datos';
@@ -6,15 +6,18 @@ import { esc, esqueletoFilas, soles } from '../dom';
 import { icono } from '../icons';
 import type { Cancelar } from '../listeners';
 import { lineaHoyCaja, vistaCaja } from '../logic/caja';
+import { ventasPorAutor } from '../logic/equipo';
 import { fraseComparacion, rangoResumenHoy, resumenHoy } from '../logic/hoy';
 import { fechaLarga } from '../logic/periodos';
+import type { VentaWeb } from '../mappers';
+import { accionesCuenta, permite, sesionActual } from '../sesion';
 
 /**
  * Hoy (pantalla al iniciar sesión): lo vendido hoy contra el mismo día de la semana pasada a
  * la misma hora, lo que te deben y lo que se acaba. Solo datos reales, nada de vanidad.
  */
 let raiz: HTMLElement | null = null;
-let ventas: Venta[] | null = null;
+let ventas: VentaWeb[] | null = null;
 let diaObservado = '';
 let cancelar: Cancelar | null = null;
 let errorVentas = '';
@@ -48,6 +51,8 @@ function pintarPrincipal(): string {
     if (errorVentas) return `<p class="mensaje-error">${icono('alert', 18)}<span>${esc(errorVentas)}</span></p>`;
     return `<div>${esqueletoFilas(1, 'esq-linea')}<div class="esqueleto" style="height:72px;width:60%;margin:8px 0"></div>${esqueletoFilas(1, 'esq-linea')}</div>`;
   }
+  // El cajero no ve reportes (D-33): solo lo que vendió él hoy, sin comparaciones.
+  if (!permite('verReportes')) return pintarPropias(ventas);
   const r = resumenHoy(ventas, new Date());
   const tono = r.variacion === null ? '' : r.variacion >= 0 ? 'sube' : 'baja';
   const flecha =
@@ -59,6 +64,23 @@ function pintarPrincipal(): string {
       <p class="hoy-monto monto-grande">${esc(soles(r.hoy))}</p>
       <p class="hoy-comparacion ${tono}">${flecha}<span>${esc(fraseComparacion(r))}</span></p>
       <p class="texto-sec" style="margin-top:4px">${esc(ventasTxt)}, contando efectivo, Yape/Plin y fiado.</p>
+    </div>`;
+}
+
+function pintarPropias(lista: readonly VentaWeb[]): string {
+  const hoy = hoyLima();
+  const uid = sesionActual()?.uid ?? '';
+  const deHoy = lista.filter((v) => {
+    const f = fechaEfectiva(v);
+    return !!f && claveDiaLima(f) === hoy;
+  });
+  const mias = ventasPorAutor(deHoy).find((a) => a.uid === uid);
+  const n = mias?.cantidad ?? 0;
+  return `
+    <div>
+      <p class="hoy-etiqueta">Hoy vendiste</p>
+      <p class="hoy-monto monto-grande">${esc(soles(mias?.total ?? 0))}</p>
+      <p class="texto-sec" style="margin-top:4px">${n === 0 ? 'Todavía no registras ventas hoy.' : n === 1 ? '1 venta registrada por ti.' : `${n} ventas registradas por ti.`}</p>
     </div>`;
 }
 
@@ -131,6 +153,13 @@ function pintar(): void {
       : `<a class="hoy-caja hoy-caja-cerrada" href="#caja">${icono('vault', 18)}<span>Abrir caja</span></a>`;
   }
 
+  // Cuenta recién creada sin productos ni clientes: quizá es un cajero invitado (D-33).
+  const vacia = e.productos?.length === 0 && e.clientes?.length === 0;
+  const invitado =
+    vacia && permite('gestionarEquipo') && accionesCuenta()
+      ? `<p class="texto-sec">¿Te invitaron como cajero a otra bodega? <button type="button" class="enlace" data-unirme-hoy>Tengo un código de invitación</button></p>`
+      : '';
+
   cont.innerHTML = `
     <div class="hoy-principal">
       ${principal}
@@ -138,7 +167,8 @@ function pintar(): void {
     </div>
     ${caja}
     ${cobrar}
-    ${acaban}`;
+    ${acaban}
+    ${invitado}`;
 }
 
 export function montarHoy(contenedor: HTMLElement): void {
@@ -149,6 +179,9 @@ export function montarHoy(contenedor: HTMLElement): void {
       <p class="hoy-fecha" id="hoy-fecha"></p>
       <div id="hoy-cuerpo"></div>
     </div>`;
+  contenedor.addEventListener('click', (e) => {
+    if ((e.target as Element).closest('[data-unirme-hoy]')) accionesCuenta()?.unirmeConCodigo();
+  });
 }
 
 export function mostrarHoy(): void {

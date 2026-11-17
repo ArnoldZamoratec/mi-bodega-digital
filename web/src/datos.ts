@@ -2,16 +2,16 @@ import type {
   AbonoNuevo,
   CargoNuevo,
   Cliente,
-  MovimientoFiado,
   OperacionVenta,
   Producto,
   RangoFechas,
-  Venta,
 } from '@bodegon/core';
-import type { Caja, MovimientoCaja, OperacionCaja } from '@bodegon/core/rules/caja';
+import type { OperacionCaja } from '@bodegon/core/rules/caja';
 
 import type { Cancelar } from './listeners';
 import type { CajaEnVivo } from './logic/caja';
+import type { MovimientoWeb, VentaWeb } from './mappers';
+import type { CajaWeb, MovimientoCajaWeb } from './mappersCaja';
 
 /**
  * Estado en memoria que comparten las vistas. `null` = aún cargando (las vistas muestran
@@ -21,9 +21,10 @@ import type { CajaEnVivo } from './logic/caja';
 export interface EstadoDatos {
   productos: Producto[] | null;
   clientes: Cliente[] | null;
-  movimientos: MovimientoFiado[] | null;
+  /** Con autoría (D-33) cuando el documento la tiene. */
+  movimientos: MovimientoWeb[] | null;
   /** Sesiones de caja (D-28): pocas, una por turno. */
-  cajas: Caja[] | null;
+  cajas: CajaWeb[] | null;
   /** Movimientos y ventas de la caja abierta (solo mientras hay una). */
   cajaVivo: CajaEnVivo | null;
   nombreBodega: string | null;
@@ -75,7 +76,10 @@ export interface DatosProducto {
 export interface FuenteDatos {
   nuevoIdVenta(): string;
   nuevoIdCargo(): string;
-  /** Venta + cargo fiado + stock en UNA transacción (B-03). */
+  /**
+   * Venta + cargo fiado + stock en UNA transacción (B-03). Sella la autoría de la sesión
+   * (D-33); el cajero solo descuenta stock numérico.
+   */
   cobrar(op: OperacionVenta): Promise<void>;
   /** Contraasiento `{id}-anulada` (core armarAnulacion) + stock devuelto + cargo borrado. */
   deshacerVenta(op: OperacionVenta): Promise<void>;
@@ -90,7 +94,7 @@ export interface FuenteDatos {
   marcarRecordatorio(clienteId: string): Promise<void>;
   observarRango(
     rango: RangoFechas,
-    onDatos: (ventas: Venta[], movimientos: MovimientoFiado[]) => void,
+    onDatos: (ventas: VentaWeb[], movimientos: MovimientoWeb[]) => void,
     onError: (mensaje: string) => void,
   ): Cancelar;
   // --- Caja (D-28). Web en línea: cada operación es UNA transacción idempotente por id. ---
@@ -100,7 +104,7 @@ export interface FuenteDatos {
   guardarCaja(op: OperacionCaja): Promise<void>;
   observarMovimientosCaja(
     cajaId: string,
-    onDatos: (movimientos: MovimientoCaja[]) => void,
+    onDatos: (movimientos: MovimientoCajaWeb[]) => void,
     onError: (mensaje: string) => void,
   ): Cancelar;
   cerrarSesion(): Promise<void>;

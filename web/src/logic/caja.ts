@@ -10,7 +10,6 @@ import {
   ZONA_NEGOCIO,
   type MovimientoFiado,
   type RangoFechas,
-  type Venta,
 } from '@bodegon/core';
 import {
   arqueo,
@@ -23,6 +22,8 @@ import {
   type ResumenCaja,
 } from '@bodegon/core/rules/caja';
 
+import type { VentaWeb } from '../mappers';
+import type { CajaWeb, MovimientoCajaWeb } from '../mappersCaja';
 import { etiquetaCorta } from './periodos';
 
 /**
@@ -34,13 +35,13 @@ import { etiquetaCorta } from './periodos';
 export interface CajaEnVivo {
   cajaId: string;
   /** `null` mientras llega el primer snapshot. */
-  movimientos: MovimientoCaja[] | null;
+  movimientos: MovimientoCajaWeb[] | null;
   /** Ventas desde el día de la apertura hasta hoy; `null` mientras llegan. */
-  ventas: Venta[] | null;
+  ventas: VentaWeb[] | null;
 }
 
 export interface EntradaCaja {
-  cajas: readonly Caja[] | null;
+  cajas: readonly CajaWeb[] | null;
   cajaVivo: CajaEnVivo | null;
   movimientos: readonly MovimientoFiado[] | null;
 }
@@ -48,10 +49,10 @@ export interface EntradaCaja {
 export interface VistaCaja {
   /** `true` mientras no llegan las cajas. */
   cargando: boolean;
-  abierta: Caja | undefined;
-  historial: Caja[];
+  abierta: CajaWeb | undefined;
+  historial: CajaWeb[];
   /** Movimientos manuales de la caja abierta, el más reciente primero. */
-  movimientos: MovimientoCaja[];
+  movimientos: MovimientoCajaWeb[];
   /** `null` mientras faltan datos para calcular el esperado. */
   resumen: ResumenCaja | null;
 }
@@ -72,7 +73,8 @@ const tiempo = (m: MovimientoCaja): number => fechaEfectiva(m)?.getTime() ?? Num
 /** Une cajas, movimientos y ventas en lo que pinta la pantalla. El esperado es del core. */
 export function vistaCaja(e: EntradaCaja, ahora: Date): VistaCaja {
   const cajas = e.cajas ?? [];
-  const abierta = cajaAbierta(cajas);
+  // El core devuelve el mismo objeto que recibe: la autoría (CajaWeb) se conserva.
+  const abierta = cajaAbierta(cajas) as CajaWeb | undefined;
   const vivo = abierta && e.cajaVivo?.cajaId === abierta.id ? e.cajaVivo : null;
   const movimientos = [...(vivo?.movimientos ?? [])]
     .filter((m) => m.cajaId === abierta?.id)
@@ -90,7 +92,7 @@ export function vistaCaja(e: EntradaCaja, ahora: Date): VistaCaja {
   return {
     cargando: e.cajas === null,
     abierta,
-    historial: historialCajas(cajas),
+    historial: historialCajas(cajas) as CajaWeb[],
     movimientos,
     resumen,
   };

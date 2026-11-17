@@ -6,19 +6,33 @@
 import {
   armarAnulacion,
   hoyLima,
+  leerAutoria,
   rangoDiasLima,
+  sellarAperturaCaja,
+  sellarCierreCaja,
+  sellarMovimientoCaja,
+  sellarMovimientoFiado,
+  sellarVenta,
+  sesionDueno,
+  type Autoria,
   type Cliente,
-  type MovimientoFiado,
+  type Invitacion,
+  type Miembro,
   type Producto,
   type RangoFechas,
-  type Venta,
+  type Sesion,
 } from '@bodegon/core';
-import type { Caja, MovimientoCaja } from '@bodegon/core/rules/caja';
 
 import { actualizarDatos, usarFuente, type FuenteDatos } from '../datos';
-import { $ } from '../dom';
+import { $, avisar } from '../dom';
+import { usarRepoEquipo, type RepositorioEquipoWeb } from '../equipo';
+import { debeDescontarStock } from '../logic/equipo';
+import type { MovimientoWeb, VentaWeb } from '../mappers';
+import type { CajaWeb, MovimientoCajaWeb } from '../mappersCaja';
+import { fijarAccionesCuenta, fijarSesion } from '../sesion';
 import { entrarApp } from '../shell';
 import { fijarTema } from '../theme';
+import { abrirUnirme, mostrarSinAcceso } from '../views/acceso';
 
 export const MARCA_DEMO = 'DEMO_BODEGON';
 
@@ -32,6 +46,20 @@ const entre = (a: number, b: number): number => a + Math.floor(azar() * (b - a +
 
 const MS_DIA = 86_400_000;
 const ahora = Date.now();
+
+// Equipo (D-33): el dueño y una cajera. `?rol=cajero` abre la demo como Rosa (cajera).
+const DUENO = 'dueno-demo';
+const ROSA: Autoria = { uid: 'cajero-rosa', nombre: 'Rosa' };
+const sesionDemo: Sesion =
+  new URLSearchParams(location.search).get('rol') === 'cajero'
+    ? { uid: ROSA.uid, bodega: DUENO, rol: 'cajero', nombre: ROSA.nombre }
+    : sesionDueno(DUENO, 'Lucho');
+
+/** La demo guarda lo mismo que Firestore: el documento sellado y su autoría leída de vuelta. */
+const autoriaDe = (tipo: Parameters<typeof leerAutoria>[0], sellado: Record<string, unknown>): { autor?: Autoria } => {
+  const a = leerAutoria(tipo, sellado);
+  return a ? { autor: a } : {};
+};
 
 /** Instante en Lima: `dias` atrás, a la hora indicada. */
 function enLima(dias: number, hora: number, minuto = 0): Date {
@@ -75,7 +103,7 @@ let clientes: Cliente[] = [
   { id: 'c6', nombre: 'Miguel Ccori', telefono: '944 221 909' },
 ];
 
-let movimientos: MovimientoFiado[] = [
+let movimientos: MovimientoWeb[] = [
   { id: 'm1', clienteId: 'c2', monto: 38.5, descripcion: 'Arroz (x3), Aceite (x1), Atún (x2)', fecha: enLima(23, 19), pagado: false },
   { id: 'm2', clienteId: 'c2', monto: -10, descripcion: 'Abono', fecha: enLima(12, 10), pagado: false, metodoPago: 'Efectivo' },
   { id: 'm3', clienteId: 'c2', monto: 12.4, descripcion: 'Leche (x2), Pan (x8)', fecha: enLima(4, 8), pagado: false },
@@ -85,13 +113,13 @@ let movimientos: MovimientoFiado[] = [
   { id: 'm7', clienteId: 'c4', monto: 9.6, descripcion: 'Coca-Cola (x1), Galleta (x2)', fecha: enLima(1, 20), pagado: false },
   { id: 'm8', clienteId: 'c5', monto: 20, descripcion: 'Detergente y papel', fecha: enLima(30, 11), pagado: false },
   { id: 'm9', clienteId: 'c5', monto: -20, descripcion: 'Pago completo', fecha: enLima(6, 11), pagado: false, metodoPago: 'Efectivo' },
-  { id: 'm10', clienteId: 'c6', monto: 31.8, descripcion: 'Avena, mantequilla y yogurt', fecha: enLima(0, 9), pagado: false },
+  { id: 'm10', clienteId: 'c6', monto: 31.8, descripcion: 'Avena, mantequilla y yogurt', fecha: enLima(0, 9), pagado: false, autor: ROSA },
   { id: 'm11', clienteId: 'c4', monto: -15, descripcion: 'Abono', fecha: enLima(3, 16), pagado: false, metodoPago: 'Efectivo' },
 ];
 
 /** Ventas de los últimos 35 días (hoy solo hasta la hora actual). */
-function generarVentas(): Venta[] {
-  const lista: Venta[] = [];
+function generarVentas(): VentaWeb[] {
+  const lista: VentaWeb[] = [];
   const horaActual = Number(
     new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: 'America/Lima' }).format(
       new Date(ahora),
@@ -117,17 +145,19 @@ function generarVentas(): Venta[] {
         metodoDePago: metodo,
         clienteId: metodo === 'Fiado' ? 'c6' : null,
         fecha,
+        // Hoy, una de cada tres ventas la hizo Rosa (para ver "Vendió: Rosa").
+        ...(d === 0 ? { autor: k % 3 === 0 ? ROSA : { uid: DUENO, nombre: 'Lucho' } } : {}),
       });
     }
   }
   return lista;
 }
 
-let ventas: Venta[] = generarVentas();
+let ventas: VentaWeb[] = generarVentas();
 
 // Caja (D-28): cierres de días anteriores (cuadra, sobrante, faltante leve y faltante) y una
 // caja abierta hoy desde las 8:05. `?caja=cerrada` muestra la pantalla sin caja abierta.
-const cierreDemo = (dias: number, abre: [number, number], cierra: [number, number], inicial: number, esperado: number, contado: number): Caja => ({
+const cierreDemo = (dias: number, abre: [number, number], cierra: [number, number], inicial: number, esperado: number, contado: number): CajaWeb => ({
   id: `caja-${dias}`,
   estado: 'cerrada',
   apertura: { monto: inicial, fecha: enLima(dias, ...abre), creadaEn: enLima(dias, ...abre) },
@@ -139,19 +169,19 @@ const cierreDemo = (dias: number, abre: [number, number], cierra: [number, numbe
     creadaEn: enLima(dias, ...cierra),
   },
 });
-let cajas: Caja[] = [
-  cierreDemo(1, [7, 50], [21, 30], 50, 412.8, 412.8),
+let cajas: CajaWeb[] = [
+  { ...cierreDemo(1, [7, 50], [21, 30], 50, 412.8, 412.8), cerradaPor: ROSA },
   cierreDemo(2, [8, 0], [21, 10], 50, 386.4, 388.4),
   cierreDemo(3, [7, 45], [21, 5], 100, 455.1, 454.6),
   cierreDemo(4, [8, 10], [20, 50], 50, 398.7, 390.7),
 ];
-let movimientosCaja: MovimientoCaja[] = [];
+let movimientosCaja: MovimientoCajaWeb[] = [];
 if (new URLSearchParams(location.search).get('caja') !== 'cerrada' && enLima(0, 8, 5).getTime() < ahora) {
   cajas = [{ id: 'caja-hoy', estado: 'abierta', apertura: { monto: 50, fecha: enLima(0, 8, 5), creadaEn: enLima(0, 8, 5) } }, ...cajas];
   movimientosCaja = [
     { id: 'mc1', cajaId: 'caja-hoy', tipo: 'egreso', monto: 18, motivo: 'Pago al proveedor de pan', fecha: enLima(0, 8, 40) },
-    { id: 'mc2', cajaId: 'caja-hoy', tipo: 'ingreso', monto: 20, motivo: 'Sencillo del banco', fecha: enLima(0, 9, 15) },
-  ].filter((m) => (m.fecha?.getTime() ?? 0) < ahora) as MovimientoCaja[];
+    { id: 'mc2', cajaId: 'caja-hoy', tipo: 'ingreso', monto: 20, motivo: 'Sencillo del banco', fecha: enLima(0, 9, 15), autor: ROSA },
+  ].filter((m) => (m.fecha?.getTime() ?? 0) < ahora) as MovimientoCajaWeb[];
 }
 const oyentesMovsCaja = new Set<() => void>();
 let contador = 1000;
@@ -171,11 +201,14 @@ const fuenteDemo: FuenteDatos = {
   nuevoIdCargo: () => nuevoId('m'),
   async cobrar(op) {
     await esperar();
-    ventas = [...ventas, { id: op.ventaId, ...op.venta, fecha: new Date() }];
-    if (op.cargo && op.cargoId) movimientos = [...movimientos, { id: op.cargoId, ...op.cargo, fecha: new Date() }];
+    ventas = [...ventas, { id: op.ventaId, ...op.venta, fecha: new Date(), ...autoriaDe('venta', sellarVenta({}, sesionDemo)) }];
+    if (op.cargo && op.cargoId) {
+      const autor = autoriaDe('movimientoFiado', sellarMovimientoFiado({}, sesionDemo));
+      movimientos = [...movimientos, { id: op.cargoId, ...op.cargo, fecha: new Date(), ...autor }];
+    }
     productos = productos.map((p) => {
       const d = op.deltasStock.find((x) => x.productoId === p.id);
-      return d && p.stock !== null ? { ...p, stock: p.stock + d.delta } : p;
+      return d && p.stock !== null && debeDescontarStock(p.stock, d.delta, sesionDemo) ? { ...p, stock: p.stock + d.delta } : p;
     });
     emitir();
   },
@@ -215,7 +248,8 @@ const fuenteDemo: FuenteDatos = {
   },
   async registrarMovimiento(m) {
     await esperar();
-    movimientos = [...movimientos, { id: nuevoId('m'), ...m, fecha: new Date() }];
+    const autor = autoriaDe('movimientoFiado', sellarMovimientoFiado({}, sesionDemo));
+    movimientos = [...movimientos, { id: nuevoId('m'), ...m, fecha: new Date(), ...autor }];
     emitir();
   },
   async eliminarMovimiento(id) {
@@ -242,16 +276,19 @@ const fuenteDemo: FuenteDatos = {
     const creadaEn = new Date(op.creadaEn);
     if (op.tipo === 'abrir') {
       if (!cajas.some((c) => c.id === op.cajaId)) {
-        cajas = [{ id: op.cajaId, estado: 'abierta', apertura: { monto: op.monto, fecha: ahoraOp, creadaEn } }, ...cajas];
+        const a = leerAutoria('aperturaCaja', sellarAperturaCaja({}, sesionDemo));
+        cajas = [{ id: op.cajaId, estado: 'abierta', apertura: { monto: op.monto, fecha: ahoraOp, creadaEn }, ...(a ? { abiertaPor: a } : {}) }, ...cajas];
       }
     } else if (op.tipo === 'movimiento') {
       if (!movimientosCaja.some((m) => m.id === op.id)) {
-        movimientosCaja = [...movimientosCaja, { id: op.id, cajaId: op.cajaId, ...op.movimiento, fecha: ahoraOp, creadaEn }];
+        const autor = autoriaDe('movimientoCaja', sellarMovimientoCaja({}, sesionDemo));
+        movimientosCaja = [...movimientosCaja, { id: op.id, cajaId: op.cajaId, ...op.movimiento, fecha: ahoraOp, creadaEn, ...autor }];
       }
     } else {
+      const a = leerAutoria('cierreCaja', sellarCierreCaja({}, sesionDemo));
       cajas = cajas.map((c) =>
         c.id === op.cajaId && c.estado === 'abierta'
-          ? { ...c, estado: 'cerrada', cierre: { ...op.cierre, fecha: ahoraOp, creadaEn } }
+          ? { ...c, estado: 'cerrada', cierre: { ...op.cierre, fecha: ahoraOp, creadaEn }, ...(a ? { cerradaPor: a } : {}) }
           : c,
       );
     }
@@ -266,6 +303,70 @@ const fuenteDemo: FuenteDatos = {
   async cerrarSesion() {
     location.href = '/';
   },
+};
+
+// ---------- Equipo (D-33) en memoria ----------
+let miembrosDemo: Miembro[] = [
+  { uid: ROSA.uid, rol: 'cajero', nombre: 'Rosa', email: 'rosa@gmail.com', activo: true, desde: enLima(20, 9), invitacion: 'RQSA2345' },
+  { uid: 'cajero-pedro', rol: 'cajero', nombre: 'Pedro', email: '', activo: false, desde: enLima(40, 9), invitacion: 'PEDR2345' },
+];
+let invitacionesDemo: Invitacion[] = [
+  {
+    codigo: 'KPMX7QRT',
+    dueno: DUENO,
+    rol: 'cajero',
+    creada: enLima(1, 10),
+    expira: new Date(enLima(1, 10).getTime() + 6 * MS_DIA),
+    usadaPor: null,
+    nombreBodega: 'Bodega Doña Rosa',
+  },
+];
+const oyentesEquipo = new Set<() => void>();
+const emitirEquipo = (): void => oyentesEquipo.forEach((fn) => fn());
+const escuchar = (fn: () => void): (() => void) => {
+  oyentesEquipo.add(fn);
+  setTimeout(fn, 250);
+  return () => oyentesEquipo.delete(fn);
+};
+
+const repoDemo: RepositorioEquipoWeb = {
+  async crearInvitacion(inv) {
+    await esperar();
+    invitacionesDemo = [...invitacionesDemo, inv];
+    emitirEquipo();
+  },
+  async leerInvitacion(codigo) {
+    return invitacionesDemo.find((i) => i.codigo === codigo) ?? null;
+  },
+  observarInvitaciones: (dueno, onDatos) => escuchar(() => onDatos(invitacionesDemo.filter((i) => i.dueno === dueno))),
+  async borrarInvitacion(codigo) {
+    invitacionesDemo = invitacionesDemo.filter((i) => i.codigo !== codigo);
+    emitirEquipo();
+  },
+  observarMiembros: (_dueno, onDatos) => escuchar(() => onDatos([...miembrosDemo])),
+  observarMiembro: (_dueno, uid, onDatos) => escuchar(() => onDatos(miembrosDemo.find((m) => m.uid === uid) ?? null)),
+  async leerMiembro(_dueno, uid) {
+    return miembrosDemo.find((m) => m.uid === uid) ?? null;
+  },
+  async actualizarMiembro(_dueno, uid, cambios) {
+    await esperar(200);
+    miembrosDemo = miembrosDemo.map((m) => (m.uid === uid ? { ...m, ...cambios } : m));
+    emitirEquipo();
+  },
+  async quitarMiembro(_dueno, uid) {
+    miembrosDemo = miembrosDemo.filter((m) => m.uid !== uid);
+    emitirEquipo();
+  },
+  async leerCuenta() {
+    return null;
+  },
+  async aceptarInvitacion(a) {
+    await esperar();
+    invitacionesDemo = invitacionesDemo.map((i) => (i.codigo === a.codigo ? { ...i, usadaPor: a.miembro.uid } : i));
+    miembrosDemo = [...miembrosDemo, { ...a.miembro, desde: new Date() }];
+    emitirEquipo();
+  },
+  async borrarCuenta() {},
 };
 
 export function iniciarDemo(): void {
@@ -283,6 +384,26 @@ export function iniciarDemo(): void {
     });
     return;
   }
+  usarRepoEquipo(repoDemo);
+  const usuario = { uid: 'usuario-demo', email: 'demo@bodegon.pe', displayName: null };
+  fijarAccionesCuenta({
+    unirmeConCodigo: () => abrirUnirme(usuario, () => avisar('Demo: aquí la web volvería a abrir la sesión como cajero.')),
+  });
+  // `?acceso=desactivado|quitado`: la pantalla que ve un cajero sin acceso.
+  const acceso = p.get('acceso');
+  if (acceso === 'desactivado' || acceso === 'quitado') {
+    const nada = () => avisar('Demo: sin conexión real.');
+    mostrarSinAcceso({ tipo: 'sin-acceso', motivo: acceso, bodega: DUENO, codigo: null }, 'Bodega Doña Rosa', {
+      reintentar: nada,
+      usarMiBodega: async () => nada(),
+      tengoCodigo: () => abrirUnirme(usuario, nada),
+      salir: () => {
+        location.href = '/?demo=1';
+      },
+    });
+    return;
+  }
+  fijarSesion(sesionDemo);
   usarFuente(fuenteDemo);
   actualizarDatos({ email: 'demo@bodegon.pe', nombreBodega: 'Bodega Doña Rosa' });
   entrarApp();

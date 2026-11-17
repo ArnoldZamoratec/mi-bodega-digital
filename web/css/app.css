@@ -931,7 +931,9 @@ kbd {
   }
   .barra-movil {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* 5 destinos para el dueño, 4 para el cajero (sin Reportes): columnas por destino visible. */
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     position: fixed;
     inset: auto 0 0 0;
     height: var(--barra-alto);
@@ -3010,5 +3012,206 @@ body.con-panel {
   }
   .login-ticket {
     transform: none;
+  }
+}
+
+/* ---------- Equipo y acceso de cajeros (D-33) ---------- */
+/* Ventas del turno en Caja: misma fila que un movimiento de caja. */
+.caja-venta {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--renglon);
+}
+.acceso {
+  position: fixed;
+  inset: 0;
+  z-index: 38; /* bajo el panel lateral (40/41) y el aviso (60) */
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: calc(1.5rem + var(--seguro-arriba)) calc(1rem + var(--seguro-der)) calc(1.5rem + var(--seguro-abajo))
+    calc(1rem + var(--seguro-izq));
+  background: var(--fondo);
+}
+.acceso-caja {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  width: 100%;
+  max-width: 32rem;
+}
+.acceso-caja .titulo-pagina {
+  margin: 0;
+}
+.acceso-otras {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--borde);
+  width: 100%;
+}
+.entrada-codigo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+.equipo {
+  max-width: 45rem;
+}
+.equipo-volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+.equipo-volver .ico {
+  transform: rotate(180deg);
+}
+.equipo-seccion {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--borde);
+}
+.equipo-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.equipo-fila {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--renglon);
+}
+.equipo-fila:last-child {
+  border-bottom: 0;
+}
+.equipo-nombre {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.equipo-meta {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.equipo-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+.equipo-acciones .confirmacion {
+  grid-column: 1 / -1;
+}
+.equipo-fila .equipo-confirmar {
+  grid-column: 1 / -1;
+}
+.codigo-grande {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.monograma.pausa {
+  opacity: 0.55;
+}
+/* Interruptor "Activo": botón con role="switch" (aria-checked), 48 px de objetivo táctil. */
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.interruptor-pista {
+  position: relative;
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--sup-3);
+  transition: background var(--t-rapida) var(--ease);
+}
+.interruptor-pista::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: var(--sup);
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.25);
+  transition: transform var(--t-rapida) var(--ease);
+}
+.interruptor[aria-checked='true'] .interruptor-pista {
+  background: var(--primario);
+}
+.interruptor[aria-checked='true'] .interruptor-pista::after {
+  transform: translateX(1rem);
+}
+.interruptor:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+.interruptor:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.autores {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+.autores-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+.autores-fila dt {
+  color: var(--texto-2);
+  overflow-wrap: anywhere;
+}
+.autores-fila dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.autor-linea {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--texto-2);
+}
+@media (max-width: 359px) {
+  .equipo-fila {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+  .equipo-acciones {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }

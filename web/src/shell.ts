@@ -1,21 +1,23 @@
-import { productosConStockBajo } from '@bodegon/core';
+import { productosConStockBajo, type Permiso } from '@bodegon/core';
 
 import { iniciarCajaVivo, reiniciarCajaVivo } from './cajaVivo';
 import { datos, suscribirDatos, type EstadoDatos } from './datos';
 import { $, cerrarPanel, esc, panelAbierto } from './dom';
 import { icono, type NombreIcono } from './icons';
+import { aplicarPermisos, permite } from './sesion';
 import { alternarTema, alCambiarTema, temaActual } from './theme';
 import { montarAjustes, mostrarAjustes, renderAjustes } from './views/ajustes';
 import { montarCaja, mostrarCaja, reiniciarCaja, renderCaja } from './views/caja';
 import { montarCobrar, mostrarCobrar, renderCobrar } from './views/cobrar';
 import { abrirEditorProducto } from './views/editores';
+import { montarEquipo, mostrarEquipo, reiniciarEquipo, renderEquipo } from './views/equipo';
 import { montarHoy, mostrarHoy, reiniciarHoy, renderHoy } from './views/hoy';
 import { montarProductos, mostrarProductos, reiniciarProductos, renderProductos } from './views/productos';
 import { montarReportes, mostrarReportes, reiniciarReportes } from './views/reportes';
 import { montarVender, mostrarVender, reiniciarVender, renderVender, teclaVender } from './views/vender';
 
 /** App shell: riel lateral (escritorio), barra inferior (celular), rutas por hash. */
-export type IdVista = 'hoy' | 'vender' | 'cobrar' | 'productos' | 'caja' | 'reportes' | 'ajustes';
+export type IdVista = 'hoy' | 'vender' | 'cobrar' | 'productos' | 'caja' | 'reportes' | 'ajustes' | 'equipo';
 
 interface Destino {
   id: IdVista;
@@ -24,6 +26,12 @@ interface Destino {
   montar: (c: HTMLElement) => void;
   mostrar: () => void;
   render?: (e: EstadoDatos) => void;
+  /** Solo para quien tiene este permiso del core (D-33): el cajero no ve Reportes ni Equipo. */
+  permiso?: Permiso;
+  /** Sin entrada en el riel ni en la barra (se llega desde otra pantalla). */
+  oculto?: boolean;
+  /** Destino que se marca como actual en la navegación (Equipo vive dentro de Ajustes). */
+  marca?: IdVista;
 }
 
 const DESTINOS: Destino[] = [
@@ -32,8 +40,19 @@ const DESTINOS: Destino[] = [
   { id: 'cobrar', etiqueta: 'Por cobrar', icono: 'notebook', montar: montarCobrar, mostrar: mostrarCobrar, render: renderCobrar },
   { id: 'productos', etiqueta: 'Productos', icono: 'package', montar: montarProductos, mostrar: mostrarProductos, render: renderProductos },
   { id: 'caja', etiqueta: 'Caja', icono: 'vault', montar: montarCaja, mostrar: mostrarCaja, render: renderCaja },
-  { id: 'reportes', etiqueta: 'Reportes', icono: 'chart', montar: montarReportes, mostrar: mostrarReportes },
+  { id: 'reportes', etiqueta: 'Reportes', icono: 'chart', montar: montarReportes, mostrar: mostrarReportes, permiso: 'verReportes' },
   { id: 'ajustes', etiqueta: 'Ajustes', icono: 'settings', montar: montarAjustes, mostrar: mostrarAjustes, render: renderAjustes },
+  {
+    id: 'equipo',
+    etiqueta: 'Equipo',
+    icono: 'users',
+    montar: montarEquipo,
+    mostrar: mostrarEquipo,
+    render: renderEquipo,
+    permiso: 'gestionarEquipo',
+    oculto: true,
+    marca: 'ajustes',
+  },
 ];
 
 /** En el celular, Caja y Ajustes van arriba a la derecha: la barra inferior tiene 5 destinos. */
@@ -44,14 +63,16 @@ let montado = false;
 
 const esVista = (v: string): v is IdVista => DESTINOS.some((d) => d.id === v);
 
+const permitido = (d: Destino | undefined): boolean => !d?.permiso || permite(d.permiso);
+
 function navItem(d: Destino, conInsignia = true): string {
-  return `<a class="nav-item" href="#${d.id}" data-nav="${d.id}">
+  return `<a class="nav-item" href="#${d.id}" data-nav="${d.id}"${d.permiso ? ` data-permiso="${d.permiso}"` : ''}>
     ${icono(d.icono, 22)}<span>${esc(d.etiqueta)}</span>${conInsignia && d.id === 'productos' ? '<span class="nav-insignia" data-insignia hidden></span>' : ''}
   </a>`;
 }
 
 function htmlShell(): string {
-  const riel = DESTINOS.filter((d) => d.id !== 'ajustes').map((d) => navItem(d));
+  const riel = DESTINOS.filter((d) => d.id !== 'ajustes' && !d.oculto).map((d) => navItem(d));
   return `
     <a href="#contenido" class="sr-only">Saltar al contenido</a>
     <nav class="riel" aria-label="Secciones">
@@ -98,15 +119,22 @@ function pintarComun(e: EstadoDatos): void {
   });
 }
 
-export function navegar(id: IdVista, enfocar = true): void {
+export function navegar(destino: IdVista, enfocar = true): void {
   if (panelAbierto()) cerrarPanel();
+  // Una ruta que el rol no puede ver (p. ej. #reportes para el cajero) lleva a Hoy.
+  let id = destino;
+  if (!permitido(DESTINOS.find((x) => x.id === id))) {
+    id = 'hoy';
+    if (location.hash !== '#hoy') history.replaceState(null, '', '#hoy');
+  }
   actual = id;
   for (const d of DESTINOS) {
     const sec = $(`vista-${d.id}`);
     if (sec) sec.hidden = d.id !== id;
   }
+  const marca = DESTINOS.find((x) => x.id === id)?.marca ?? id;
   document.querySelectorAll<HTMLElement>('[data-nav]').forEach((a) => {
-    if (a.dataset.nav === id) a.setAttribute('aria-current', 'page');
+    if (a.dataset.nav === marca) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
   const d = DESTINOS.find((x) => x.id === id);
@@ -166,10 +194,10 @@ export function montarShell(): void {
     const ir = t.closest<HTMLElement>('[data-ir]');
     if (ir?.dataset.ir && esVista(ir.dataset.ir)) {
       location.hash = ir.dataset.ir;
-      if (ir.hasAttribute('data-nuevo-producto')) abrirEditorProducto(null);
+      if (ir.hasAttribute('data-nuevo-producto') && permite('editarProductos')) abrirEditorProducto(null);
       return;
     }
-    if (t.closest('[data-nuevo-producto]')) abrirEditorProducto(null);
+    if (t.closest('[data-nuevo-producto]') && permite('editarProductos')) abrirEditorProducto(null);
   });
 
   document.addEventListener('keydown', (e) => {
@@ -198,6 +226,8 @@ export function entrarApp(): void {
   montarShell();
   const app = $('app');
   if (app) app.hidden = false;
+  // El shell se monta una vez; lo que depende del rol se ajusta en cada ingreso.
+  aplicarPermisos(app ?? document);
   pintarComun(datos());
   navegar(rutaDelHash(), false);
 }
@@ -211,6 +241,7 @@ export function salirApp(): void {
   reiniciarProductos();
   reiniciarCaja();
   reiniciarCajaVivo();
+  reiniciarEquipo();
   const app = $('app');
   if (app) app.hidden = true;
   actual = null;

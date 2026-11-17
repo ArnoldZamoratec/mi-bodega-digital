@@ -49,6 +49,9 @@ const PANTALLAS: Array<{ nombre: string; ruta: string }> = [
   { nombre: 'Caja cerrada', ruta: '/?demo=1&caja=cerrada#caja' },
   { nombre: 'Reportes', ruta: '/?demo=1#reportes' },
   { nombre: 'Ajustes', ruta: '/?demo=1#ajustes' },
+  { nombre: 'Equipo', ruta: '/?demo=1#equipo' },
+  { nombre: 'Vender como cajero', ruta: '/?demo=1&rol=cajero#vender' },
+  { nombre: 'Cajero en pausa', ruta: '/?demo=1&acceso=desactivado' },
 ];
 
 async function desbordeHorizontal(page: Page): Promise<number> {
